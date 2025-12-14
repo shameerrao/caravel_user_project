@@ -220,7 +220,7 @@ precheck:
 		rm -rf $(PRECHECK_ROOT) && sleep 2;\
 	fi
 	@echo "Installing Precheck.."
-	@git clone --depth=1 --branch $(MPW_TAG) https://github.com/chipfoundry/mpw_precheck.git $(PRECHECK_ROOT)
+	@git clone --depth=1 https://github.com/chipfoundry/mpw_precheck.git $(PRECHECK_ROOT)
 	@docker pull chipfoundry/mpw_precheck:latest
 
 .PHONY: run-precheck
