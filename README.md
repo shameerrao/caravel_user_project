@@ -114,14 +114,6 @@ This repository contains a sample user project for the [Caravel](https://github.
 
 Specify the power-on default configuration for each GPIO in Caravel in `verilog/rtl/user_defines.v`. GPIO[5] to GPIO[37] require configuration, while GPIO[0] to GPIO[4] are preset and cannot be changed.
 
-### Layout Integration
-
-The Caravel layout includes an empty golden wrapper in the user space. Provide a valid `user_project_wrapper` GDS file. Your hardened `user_project_wrapper` will be integrated into the Caravel layout during tapeout.
-
-![Layout](./_static/layout.png)
-
-Ensure your hardened `user_project_wrapper` meets the requirements in [User Project Wrapper Requirements](#user-project-wrapper-requirements).
-
 
 ## Checklist for Shuttle Submission
 
