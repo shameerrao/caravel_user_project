@@ -1,124 +1,175 @@
-# Caravel User Project
+<div align="center">
+
+<img src="https://umsousercontent.com/lib_lnlnuhLgkYnZdkSC/hj0vk05j0kemus1i.png" alt="ChipFoundry Logo" height="140" />
+
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Inter&size=44&duration=3000&pause=600&color=4C6EF5&center=true&vCenter=true&width=1100&lines=Caravel+User+Project+Template;OpenLane+%2B+ChipFoundry+Flow;Verification+and+Shuttle-Ready)](https://git.io/typing-svg)
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![ChipFoundry Marketplace](https://img.shields.io/badge/ChipFoundry-Marketplace-6E40C9.svg)](https://platform.chipfoundry.io/marketplace)
+
+</div>
+
+## Table of Contents
+- [Overview](#overview)
+- [Documentation & Resources](#documentation--resources)
+- [Prerequisites](#prerequisites)
+- [Project Structure](#project-structure)
+- [Starting Your Project](#starting-your-project)
+- [Development Flow](#development-flow)
+- [GPIO Configuration](#gpio-configuration)
+- [Local Precheck](#local-precheck)
+- [Checklist for Shuttle Submission](#checklist-for-shuttle-submission)
 
 ## Overview
+This repository contains a user project designed for integration into the **Caravel chip user space**. Use it as a template for integrating custom RTL with Caravel's system-on-chip (SoC) utilities, including:
 
-This repository contains a sample user project for the [Caravel](https://github.com/chipfoundry/caravel.git) chip user space. It includes a simple counter demonstrating how to use Caravel's utilities such as IO pads, logic analyzer probes, and the Wishbone port. The repository also follows the recommended structure for open-mpw shuttle projects.
+* **IO Pads:** Configurable general-purpose input/output.
+* **Logic Analyzer Probes:** 128 signals for non-intrusive hardware debugging.
+* **Wishbone Port:** A 32-bit standard bus interface for communication between the RISC-V management core and your custom hardware.
+
+---
+
+## Documentation & Resources
+For detailed hardware specifications and register maps, refer to the following official documents:
+
+* **[Caravel Datasheet](https://github.com/chipfoundry/caravel/blob/main/docs/caravel_datasheet_2.pdf)**: Detailed electrical and physical specifications of the Caravel harness.
+* **[Caravel Technical Reference Manual (TRM)](https://github.com/chipfoundry/caravel/blob/main/docs/caravel_datasheet_2_register_TRM_r2.pdf)**: Complete register maps and programming guides for the management SoC.
+* **[ChipFoundry Marketplace](https://platform.chipfoundry.io/marketplace)**: Access additional IP blocks, EDA tools, and shuttle services.
+
+---
 
 ## Prerequisites
+Ensure your environment meets the following requirements:
 
-- Docker: [Linux](https://docs.docker.com/desktop/setup/install/linux/ubuntu/) | [Windows](https://docs.docker.com/desktop/setup/install/windows-install/) | [Mac](https://docs.docker.com/desktop/setup/install/mac-install/)
-- Python 3.8+ with PIP
+1. **Docker** [Linux](https://docs.docker.com/desktop/setup/install/linux/ubuntu/) | [Windows](https://docs.docker.com/desktop/setup/install/windows-install/) | [Mac](https://docs.docker.com/desktop/setup/install/mac-install/)
+2. **Python 3.8+** with `pip`.
+3. **Git**: For repository management.
+
+---
+
+## Project Structure
+Default directory structure:
+
+| Directory | Description |
+| :--- | :--- |
+| `openlane/` | Configuration files for hardening macros and the wrapper. |
+| `verilog/rtl/` | Source Verilog code for the project. |
+| `verilog/gl/` | Gate-level netlists (generated after hardening). |
+| `verilog/dv/` | Design Verification (cocotb testbenches & firmware). |
+| `gds/` | Final GDSII binary files for fabrication. |
+
+---
 
 ## Starting Your Project
 
-1. Create a new repository based on the [caravel_user_project](https://github.com/chipfoundry/caravel_user_project/) template.
+### 1. Repository Setup
+Create a new repository based on the [caravel_user_project](https://github.com/chipfoundry/caravel_user_project/) template and clone it to your local machine:
 
-   - Follow [this link](https://github.com/chipfoundry/caravel_user_project/generate) to create your repository.
-   - Clone the repository using:
+```bash
+git clone <your-github-repo-URL>
+cd <project_name>
+```
 
-     ```bash
-     git clone <your github repo URL>
-     ```
-3. Install ChipFoundry CLI tool:
+### 2. Environment Initialization
+Install the ChipFoundry CLI tool and set up the local environment (PDKs, OpenLane, and Caravel lite):
 
-   ```bash
-   pip install cf-cli
-   ```
+```bash
+pip install chipfoundry-cli
+cf setup
+```
 
-3. Set up your local environment:
+The `cf setup` command installs:
 
-   ```bash
-   cd <project_name>
-   cf setup
-   ```
+- Caravel Lite: The Caravel SoC template.
+- Management Core: RISC-V management area required for simulation.
+- OpenLane: The RTL-to-GDS hardening flow.
+- PDK: Skywater 130nm process design kit.
+- Timing Scripts: For Static Timing Analysis (STA).
 
-   This command installs:
+---
 
-   - caravel_lite
-   - Management core for simulation
-   - OpenLane for design hardening
-   - PDK
-   - Timing scripts
+## Development Flow
 
-3. Start hardening your design:
+### Hardening the Design
+Hardening is the process of synthesizing your RTL and performing Place & Route (P&R) to create a GDSII layout.
 
-   - For hardening, provide an RTL Verilog model of your design to OpenLane.
-   - Create a subdirectory for each macro in your project under the `openlane/` directory with OpenLane configuration files.
+#### Macro Hardening
+Create a subdirectory for each custom macro under `openlane/` containing your `config.tcl`.
 
-     ```bash
-     cf harden --list # To list all the config files found in your project
-     cf harden <macro_name>
-     ```
+```bash
+cf harden --list         # List detected configurations
+cf harden <macro_name>   # Harden a specific macro
+```
 
-   Refer to [the example configuration](./openlane/user_proj_example/config.json) for an example config file.
+#### Integration
+Instantiate your module(s) in `verilog/rtl/user_project_wrapper.v`.
 
-4. Integrate modules into the user_project_wrapper:
+Update `openlane/user_project_wrapper/config.json` environment variables (`VERILOG_FILES_BLACKBOX`, `EXTRA_LEFS`, `EXTRA_GDS_FILES`) to point to your new macros.
 
-   - Update environment variables `VERILOG_FILES_BLACKBOX`, `EXTRA_LEFS`, and `EXTRA_GDS_FILES` in `openlane/user_project_wrapper/config.tcl` to point to your module.
-   - Instantiate your module(s) in `verilog/rtl/user_project_wrapper.v`.
-   - Harden the user_project_wrapper with your module(s):
+#### Wrapper Hardening
+Finalize the top-level user project:
 
-     ```bash
-     cf harden user_project_wrapper
-     ```
+```bash
+cf harden user_project_wrapper
+```
 
-5. Run cocotb simulation on your design:
+### Verification
 
-   - Update `rtl/gl` files in `verilog/includes/includes.<rtl/gl>.caravel_user_project`.
-   - Run `gen_gpio_defaults.py` script to generate `caravel_core.v`.
-   - Run RTL tests:
+#### 1. Simulation
+We use cocotb for functional verification. Ensure your file lists are updated in `verilog/includes/`.
 
-     ```bash
-     cf verify <test_name>
-     ```
+Generate GPIO defaults:
 
-   - For GL simulation:
+```bash
+python3 verilog/dv/gen_gpio_defaults.py
+```
 
-     ```bash
-     cf verify <test_name> --sim GL
-     ```
+Run RTL Simulation:
 
-   - To add cocotb tests, refer to [Adding cocotb test](https://caravel-sim-infrastructure.readthedocs.io/en/latest/usage.html#adding-a-test).
+```bash
+cf verify <test_name>
+```
 
-6. Run opensta on your design:
+Run Gate-Level (GL) Simulation:
 
-   - Extract parasitics for `user_project_wrapper` and its macros:
+```bash
+cf verify <test_name> --sim GL
+```
 
-     ```bash
-     make extract-parasitics
-     ```
+#### 2. Static Timing Analysis (STA)
+Verify that your design meets timing constraints using OpenSTA:
 
-   - Create a spef mapping file:
+```bash
+make extract-parasitics
+make create-spef-mapping
+make caravel-sta
+```
 
-     ```bash
-     make create-spef-mapping
-     ```
+Note: Run `make setup-timing-scripts` if you need to update the STA environment.
 
-   - Run opensta:
+---
 
-     ```bash
-     make caravel-sta
-     ```
+## GPIO Configuration
+Specify the power-on default configuration for each GPIO in `verilog/rtl/user_defines.v`.
 
- > [!NOTE]
- > To update timing scripts, run `make setup-timing-scripts`.
+- GPIO[0] to GPIO[4]: Preset system pins (do not change).
+- GPIO[5] to GPIO[37]: User-configurable pins.
 
-7. Run the precheck locally:
+---
 
-   ```bash
-   cf precheck
-   ```
+## Local Precheck
+Before submitting your design for fabrication, run the local precheck to ensure it complies with all shuttle requirements:
 
+```bash
+cf precheck
+```
 
-### GPIO Configuration
-
-Specify the power-on default configuration for each GPIO in Caravel in `verilog/rtl/user_defines.v`. GPIO[5] to GPIO[37] require configuration, while GPIO[0] to GPIO[4] are preset and cannot be changed.
-
+---
 
 ## Checklist for Shuttle Submission
-
-- ✔️ Top level macro is named `user_project_wrapper`.
-- ✔️ Full Chip Simulation passes for RTL and GL.
-- ✔️ Hardened Macros are LVS and DRC clean.
-- ✔️ `user_project_wrapper` matches the [pin order](https://github.com/chipfoundry/caravel/blob/master/openlane/user_project_wrapper_empty/pin_order.cfg).
-- ✔️ Design passes the [precheck](https://github.com/chipfoundry/mpw_precheck).
+- [ ] Top-level macro is named user_project_wrapper.
+- [ ] Full Chip Simulation passes for both RTL and GL.
+- [ ] Hardened Macros are LVS and DRC clean.
+- [ ] user_project_wrapper matches the required pin order/template.
+- [ ] Design passes the local cf precheck.
+- [ ] Documentation (this README) is updated with project-specific details.
