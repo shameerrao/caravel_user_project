@@ -90,7 +90,27 @@ endif
 %:
 	export CARAVEL_ROOT=$(CARAVEL_ROOT) && export MPW_TAG=$(MPW_TAG) && $(MAKE) -f $(CARAVEL_ROOT)/Makefile $@
 
-.PHONY: install
+.PHONY: check-deprecated
+check-deprecated:
+	@if [ "$$DISABLE_DEPRECATED_MAKEFILE_PROMPT" = "1" ]; then \
+		exit 0; \
+	fi; \
+	if ! [ -t 0 ]; then \
+		printf "ERROR: This Makefile target is deprecated and requires confirmation.\n"; \
+		printf "Use the cf CLI instead, or set DISABLE_DEPRECATED_MAKEFILE_PROMPT=1 to bypass.\n"; \
+		exit 1; \
+	fi; \
+	printf "\033[33mWARNING: Deprecated Makefile target.\033[0m\n"; \
+	printf "\033[33mInstall the cf CLI:\033[0m\n"; \
+	printf "  pip install cf-cli\n"; \
+	printf "\033[33mContinue? [y/N]: \033[0m"; \
+	read -r reply; \
+	case "$$reply" in \
+		Y|y|yes|YES) ;; \
+		*) echo "Aborted."; exit 1;; \
+	esac
+
+.PHONY: check-deprecated install
 install:
 	if [ -d "$(CARAVEL_ROOT)" ]; then\
 		echo "Deleting exisiting $(CARAVEL_ROOT)" && \
@@ -110,7 +130,7 @@ simenv-cocotb:
 	docker pull chipfoundry/dv:cocotb
 
 .PHONY: setup
-setup: check_dependencies install check-env install_mcw openlane pdk-with-ciel setup-timing-scripts setup-cocotb precheck
+setup: check-deprecated check_dependencies install check-env install_mcw openlane pdk-with-ciel setup-timing-scripts setup-cocotb precheck
 
 # Openlane
 
@@ -173,7 +193,7 @@ what:
 	# $(make_what)
 
 # Install LibreLane
-.PHONY: librelane openlane librelane-% openlane2-venv openlane2-docker-container
+.PHONY: check-deprecated librelane openlane librelane-% openlane2-venv openlane2-docker-container
 openlane: librelane
 librelane: librelane-venv
 openlane2-venv: librelane-venv
@@ -214,7 +234,7 @@ uninstall:
 # Install Pre-check
 # Default installs to the user home directory, override by "export PRECHECK_ROOT=<precheck-installation-path>"
 .PHONY: precheck
-precheck:
+precheck: check-deprecated
 	if [ -d "$(PRECHECK_ROOT)" ]; then\
 		echo "Deleting exisiting $(PRECHECK_ROOT)" && \
 		rm -rf $(PRECHECK_ROOT) && sleep 2;\
@@ -224,7 +244,7 @@ precheck:
 	@docker pull chipfoundry/mpw_precheck:latest
 
 .PHONY: run-precheck
-run-precheck: check-pdk check-precheck
+run-precheck: check-deprecated check-pdk check-precheck
 	@if [ "$$DISABLE_LVS" = "1" ]; then\
 		$(eval INPUT_DIRECTORY := $(shell pwd)) \
 		cd $(PRECHECK_ROOT) && \
@@ -328,17 +348,17 @@ setup-cocotb-env:
 setup-cocotb: install-caravel-cocotb setup-cocotb-env simenv-cocotb
 
 .PHONY: cocotb-verify-all-rtl
-cocotb-verify-all-rtl: 
+cocotb-verify-all-rtl: check-deprecated
 	@(cd $(PROJECT_ROOT)/verilog/dv/cocotb && $(PROJECT_ROOT)/venv-cocotb/bin/caravel_cocotb -tl user_proj_tests/user_proj_tests.yaml )
 	
 .PHONY: cocotb-verify-all-gl
-cocotb-verify-all-gl:
+cocotb-verify-all-gl: check-deprecated
 	@(cd $(PROJECT_ROOT)/verilog/dv/cocotb && $(PROJECT_ROOT)/venv-cocotb/bin/caravel_cocotb -tl user_proj_tests/user_proj_tests_gl.yaml -sim GL)
 
-$(cocotb-dv-targets-rtl): cocotb-verify-%-rtl: 
+$(cocotb-dv-targets-rtl): cocotb-verify-%-rtl: check-deprecated
 	@(cd $(PROJECT_ROOT)/verilog/dv/cocotb && $(PROJECT_ROOT)/venv-cocotb/bin/caravel_cocotb -t $*  )
 	
-$(cocotb-dv-targets-gl): cocotb-verify-%-gl:
+$(cocotb-dv-targets-gl): cocotb-verify-%-gl: check-deprecated
 	@(cd $(PROJECT_ROOT)/verilog/dv/cocotb && $(PROJECT_ROOT)/venv-cocotb/bin/caravel_cocotb -t $* -sim GL)
 
 ./verilog/gl/user_project_wrapper.v:
@@ -415,7 +435,7 @@ $(blocks): % :
 	$(MAKE) -C openlane $*
 
 .PHONY: harden
-harden: $(blocks)
+harden: check-deprecated $(blocks)
 
 clean-targets=$(blocks:%=clean-%)
 .PHONY: $(clean-targets)
