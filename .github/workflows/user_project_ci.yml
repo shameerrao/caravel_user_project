@@ -126,6 +126,27 @@ jobs:
         run: |
           cf setup --pdk ${{ matrix.pdk }} --only-caravel --only-mcw --only-pdk --only-cocotb
 
+      - name: Configure GPIO (non-interactive)
+        run: |
+          python3 <<EOF
+          import json
+          from pathlib import Path
+          
+          project_json = Path('.cf/project.json')
+          with open(project_json) as f:
+              data = json.load(f)
+          
+          # Set default GPIO config (all as user input no pull)
+          gpio_config = {}
+          for gpio in range(5, 38):
+              gpio_config[str(gpio)] = "13'h0402"  # GPIO_MODE_USER_STD_INPUT_NOPULL
+          
+          data['project']['gpio_config'] = gpio_config
+          
+          with open(project_json, 'w') as f:
+              json.dump(data, f, indent=2)
+          EOF
+
       - name: Run RTL Verification
         run: |
           cf verify --all
@@ -183,6 +204,12 @@ jobs:
         run: |
           cf setup --pdk ${{ matrix.pdk }} --only-pdk --only-precheck
 
+      - name: Download Hardened Design
+        uses: actions/download-artifact@v4
+        with:
+          name: design-${{ matrix.pdk }}
+          path: ${{ github.workspace }}
+
       - name: Configure GPIO (non-interactive)
         run: |
           python3 <<EOF
@@ -203,12 +230,6 @@ jobs:
           with open(project_json, 'w') as f:
               json.dump(data, f, indent=2)
           EOF
-
-      - name: Download Hardened Design
-        uses: actions/download-artifact@v4
-        with:
-          name: design-${{ matrix.pdk }}
-          path: ${{ github.workspace }}
 
       - name: Run Precheck
         run: |
