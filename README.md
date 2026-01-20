@@ -220,7 +220,6 @@ You can also run specific checks or disable LVS:
 cf precheck --disable-lvs                    # Skip LVS check
 cf precheck --checks license --checks makefile  # Run specific checks only
 ```
-
 ---
 
 ## Checklist for Shuttle Submission
