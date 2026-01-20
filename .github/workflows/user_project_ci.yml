@@ -80,9 +80,10 @@ jobs:
 
       - name: Harden Designs
         run: |
+          set -e
           python3 .github/scripts/get_designs.py --design ${{ github.workspace }}
           for design in $(cat harden_sequence.txt); do
-            cf harden $design --pdk ${{ matrix.pdk }}
+            cf harden $design --pdk ${{ matrix.pdk }} || exit 1
           done
 
       - name: Upload Hardened Design
@@ -205,6 +206,7 @@ jobs:
           project_json = Path('.cf/project.json')
           
           data = {
+              "pdk": "${{ matrix.pdk }}",
               "project": {
                   "name": project_name,
                   "type": "digital",
@@ -252,4 +254,4 @@ jobs:
 
       - name: Run Precheck
         run: |
-          cf precheck --pdk ${{ matrix.pdk }}
+          cf precheck
