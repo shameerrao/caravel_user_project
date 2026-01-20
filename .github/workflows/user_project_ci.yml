@@ -55,35 +55,14 @@ jobs:
 
       - name: Setup Dependencies
         run: |
-          cf setup --pdk ${{ matrix.pdk }} --only-caravel --only-mcw --only-openlane --only-pdk --only-timing
-
-      - name: Configure GPIO (non-interactive)
-        run: |
-          python3 <<EOF
-          import json
-          from pathlib import Path
-          
-          project_json = Path('.cf/project.json')
-          with open(project_json) as f:
-              data = json.load(f)
-          
-          # Set default GPIO config (all as user input no pull)
-          gpio_config = {}
-          for gpio in range(5, 38):
-              gpio_config[str(gpio)] = "13'h0402"  # GPIO_MODE_USER_STD_INPUT_NOPULL
-          
-          data['project']['gpio_config'] = gpio_config
-          
-          with open(project_json, 'w') as f:
-              json.dump(data, f, indent=2)
-          EOF
+          cf setup --pdk ${{ matrix.pdk }} --only-openlane --only-pdk
 
       - name: Harden Designs
         run: |
           set -e
           python3 .github/scripts/get_designs.py --design ${{ github.workspace }}
           for design in $(cat harden_sequence.txt); do
-            cf harden $design --pdk ${{ matrix.pdk }} || exit 1
+            cf harden $design || exit 1
           done
 
       - name: Upload Hardened Design
@@ -147,30 +126,9 @@ jobs:
         run: |
           cf setup --pdk ${{ matrix.pdk }} --only-caravel --only-mcw --only-pdk --only-cocotb
 
-      - name: Configure GPIO (non-interactive)
-        run: |
-          python3 <<EOF
-          import json
-          from pathlib import Path
-          
-          project_json = Path('.cf/project.json')
-          with open(project_json) as f:
-              data = json.load(f)
-          
-          # Set default GPIO config (all as user input no pull)
-          gpio_config = {}
-          for gpio in range(5, 38):
-              gpio_config[str(gpio)] = "13'h0402"  # GPIO_MODE_USER_STD_INPUT_NOPULL
-          
-          data['project']['gpio_config'] = gpio_config
-          
-          with open(project_json, 'w') as f:
-              json.dump(data, f, indent=2)
-          EOF
-
       - name: Run RTL Verification
         run: |
-          cf verify --tag user_proj_tests --sim rtl
+          cf verify --all
 
   precheck:
     timeout-minutes: 720
@@ -223,7 +181,7 @@ jobs:
 
       - name: Setup Dependencies
         run: |
-          cf setup --pdk ${{ matrix.pdk }} --only-caravel --only-mcw --only-pdk --only-precheck
+          cf setup --pdk ${{ matrix.pdk }} --only-pdk --only-precheck
 
       - name: Configure GPIO (non-interactive)
         run: |
