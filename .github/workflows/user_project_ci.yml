@@ -55,7 +55,7 @@ jobs:
 
       - name: Setup Dependencies
         run: |
-          cf setup --pdk ${{ matrix.pdk }} --skip-cocotb --skip-precheck
+          cf setup --pdk ${{ matrix.pdk }} --only-caravel --only-mcw --only-openlane --only-pdk --only-timing
 
       - name: Configure GPIO (non-interactive)
         run: |
@@ -144,7 +144,7 @@ jobs:
 
       - name: Setup Dependencies
         run: |
-          cf setup --pdk ${{ matrix.pdk }} --skip-openlane --skip-precheck
+          cf setup --pdk ${{ matrix.pdk }} --only-caravel --only-mcw --only-pdk --only-cocotb
 
       - name: Configure GPIO (non-interactive)
         run: |
@@ -221,7 +221,7 @@ jobs:
 
       - name: Setup Dependencies
         run: |
-          cf setup --pdk ${{ matrix.pdk }} --skip-openlane --skip-cocotb
+          cf setup --pdk ${{ matrix.pdk }} --only-caravel --only-mcw --only-pdk --only-precheck
 
       - name: Configure GPIO (non-interactive)
         run: |
