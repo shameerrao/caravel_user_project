@@ -172,18 +172,72 @@ jobs:
           sudo chown -R $USER:$USER ${{ env.CARAVEL_ROOT }}
           tar -xf /tmp/caravel.tar -C $CARAVEL_ROOT .
 
+      - name: Install ChipFoundry CLI
+        run: |
+          sudo apt-get install -y python3 python3-venv python3-pip python3-tk
+          pip3 install chipfoundry-cli
+
+      - name: Initialize Project
+        run: |
+          cd $GITHUB_WORKSPACE
+          mkdir -p .cf
+          python3 <<EOF
+          import json
+          import os
+          from pathlib import Path
+          
+          project_name = os.path.basename(os.getcwd())
+          project_json = Path('.cf/project.json')
+          
+          data = {
+              "project": {
+                  "name": project_name,
+                  "type": "digital",
+                  "user": "chipfoundry",
+                  "version": "1.0.0",
+                  "user_project_wrapper_hash": "",
+                  "submission_state": "Draft"
+              }
+          }
+          
+          with open(project_json, 'w') as f:
+              json.dump(data, f, indent=2)
+          EOF
+
       - name: Install LibreLane
         run: |
-          sudo apt-get install -y python3 python3-venv python3-tk
           cd $GITHUB_WORKSPACE
-          make openlane
+          cf setup --only-openlane --pdk ${{ matrix.pdk }}
+
+      - name: Configure GPIO (non-interactive)
+        run: |
+          cd $GITHUB_WORKSPACE
+          # Create a default GPIO config for CI (all GPIOs as user input no pull)
+          python3 <<EOF
+          import json
+          from pathlib import Path
+          
+          project_json = Path('.cf/project.json')
+          with open(project_json) as f:
+              data = json.load(f)
+          
+          # Set default GPIO config (all as user input no pull)
+          gpio_config = {}
+          for gpio in range(5, 38):
+              gpio_config[str(gpio)] = "13'h0402"  # GPIO_MODE_USER_STD_INPUT_NOPULL
+          
+          data['project']['gpio_config'] = gpio_config
+          
+          with open(project_json, 'w') as f:
+              json.dump(data, f, indent=2)
+          EOF
 
       - name: Harden using LibreLane
         run: |
           python3 $GITHUB_WORKSPACE/.github/scripts/get_designs.py --design $GITHUB_WORKSPACE
           for word in $(cat harden_sequence.txt); do
             echo "CURRENT_DESIGN=${word}" >> $GITHUB_ENV
-            make $word
+            cf harden $word --pdk ${{ matrix.pdk }}
           done
           rm -rf openlane/user_proj_example/runs openlane/user_project_wrapper/runs pdk openlane_src caravel mgmt_core_wrapper timing-scripts mpw_precheck
 
@@ -274,17 +328,70 @@ jobs:
           sudo chown -R $USER:$USER ${{ env.MCW_ROOT }}
           tar -xf /tmp/mgmt_core_wrapper.tar -C $MCW_ROOT .
 
-      - name: install cocotb
+      - name: Install ChipFoundry CLI
         run: |
-          make setup-cocotb
+          sudo apt-get install -y python3 python3-pip
+          pip3 install chipfoundry-cli
 
-      - name: run RTL verification
+      - name: Initialize Project
         run: |
-          cd $GITHUB_WORKSPACE/verilog/dv/cocotb && $GITHUB_WORKSPACE/venv-cocotb/bin/caravel_cocotb -tl user_proj_tests/user_proj_tests.yaml -verbosity debug --CI -tag rtl_verification
-          cnt=$(grep -c "failed" "$GITHUB_WORKSPACE/verilog/dv/cocotb/sim/rtl_verification/runs.log")
-          if ! [[ $cnt ]]; then cnt=0; fi
-          if [[ $cnt -eq 1 ]]; then exit 0; fi
-          exit 2
+          cd $GITHUB_WORKSPACE
+          mkdir -p .cf
+          python3 <<EOF
+          import json
+          import os
+          from pathlib import Path
+          
+          project_name = os.path.basename(os.getcwd())
+          project_json = Path('.cf/project.json')
+          
+          data = {
+              "project": {
+                  "name": project_name,
+                  "type": "digital",
+                  "user": "chipfoundry",
+                  "version": "1.0.0",
+                  "user_project_wrapper_hash": "",
+                  "submission_state": "Draft"
+              }
+          }
+          
+          with open(project_json, 'w') as f:
+              json.dump(data, f, indent=2)
+          EOF
+
+      - name: Configure GPIO (non-interactive)
+        run: |
+          cd $GITHUB_WORKSPACE
+          # Create a default GPIO config for CI (all GPIOs as user input no pull)
+          python3 <<EOF
+          import json
+          from pathlib import Path
+          
+          project_json = Path('.cf/project.json')
+          with open(project_json) as f:
+              data = json.load(f)
+          
+          # Set default GPIO config (all as user input no pull)
+          gpio_config = {}
+          for gpio in range(5, 38):
+              gpio_config[str(gpio)] = "13'h0402"  # GPIO_MODE_USER_STD_INPUT_NOPULL
+          
+          data['project']['gpio_config'] = gpio_config
+          
+          with open(project_json, 'w') as f:
+              json.dump(data, f, indent=2)
+          EOF
+
+      - name: Setup Cocotb
+        run: |
+          cd $GITHUB_WORKSPACE
+          cf setup --only-cocotb
+
+      - name: Run RTL verification
+        run: |
+          cd $GITHUB_WORKSPACE
+          cf verify --tag user_proj_tests --sim rtl
 
   precheck:
     timeout-minutes: 720
@@ -349,20 +456,65 @@ jobs:
           sudo chown -R $USER:$USER $GITHUB_WORKSPACE
           tar -xf /tmp/design_${{ matrix.pdk }}.tar -C $GITHUB_WORKSPACE .
 
+      - name: Install ChipFoundry CLI
+        run: |
+          sudo apt-get install -y python3 python3-pip
+          pip3 install chipfoundry-cli
+
+      - name: Initialize Project
+        run: |
+          cd $GITHUB_WORKSPACE
+          mkdir -p .cf
+          python3 <<EOF
+          import json
+          import os
+          from pathlib import Path
+          
+          project_name = os.path.basename(os.getcwd())
+          project_json = Path('.cf/project.json')
+          
+          data = {
+              "project": {
+                  "name": project_name,
+                  "type": "digital",
+                  "user": "chipfoundry",
+                  "version": "1.0.0",
+                  "user_project_wrapper_hash": "",
+                  "submission_state": "Draft"
+              }
+          }
+          
+          with open(project_json, 'w') as f:
+              json.dump(data, f, indent=2)
+          EOF
+
+      - name: Configure GPIO (non-interactive)
+        run: |
+          cd $GITHUB_WORKSPACE
+          # Create a default GPIO config for CI (all GPIOs as user input no pull)
+          python3 <<EOF
+          import json
+          from pathlib import Path
+          
+          project_json = Path('.cf/project.json')
+          with open(project_json) as f:
+              data = json.load(f)
+          
+          # Set default GPIO config (all as user input no pull)
+          gpio_config = {}
+          for gpio in range(5, 38):
+              gpio_config[str(gpio)] = "13'h0402"  # GPIO_MODE_USER_STD_INPUT_NOPULL
+          
+          data['project']['gpio_config'] = gpio_config
+          
+          with open(project_json, 'w') as f:
+              json.dump(data, f, indent=2)
+          EOF
+
       - name: Run Precheck
         run: |
-          export INPUT_DIRECTORY=$GITHUB_WORKSPACE
-          export PRECHECK_ROOT=$INPUT_DIRECTORY/mpw_precheck
-          export OUTPUT_DIRECTORY=$INPUT_DIRECTORY/mpw_precheck_result
-          export OUTPUT=$OUTPUT_DIRECTORY/logs/precheck.log
-          export PDKPATH=$PDK_ROOT/sky130A
-
-          docker run -v "$PRECHECK_ROOT":"$PRECHECK_ROOT" -v "$INPUT_DIRECTORY":"$INPUT_DIRECTORY" -v "${{ env.PDK_ROOT }}":"${{ env.PDK_ROOT }}" -e INPUT_DIRECTORY="$INPUT_DIRECTORY" -e PDK_ROOT="${{ env.PDK_ROOT }}" -e PDKPATH="${{ env.PDKPATH }}" -u $(id -u "$USER"):$(id -g "$USER") efabless/mpw_precheck:latest bash -c "cd $PRECHECK_ROOT; python3 mpw_precheck.py --input_directory $INPUT_DIRECTORY --pdk_path ${{ env.PDKPATH }} --output_directory $OUTPUT_DIRECTORY license makefile consistency xor magic_drc klayout_beol klayout_feol klayout_met_min_ca_density klayout_offgrid klayout_pin_label_purposes_overlapping_drawing klayout_zeroarea lvs"
-
-          cnt=$(grep -c "All Checks Passed" "$OUTPUT")
-          if ! [[ $cnt ]]; then cnt=0; fi
-          if [[ $cnt -eq 1 ]]; then exit 0; fi
-          exit 2
+          cd $GITHUB_WORKSPACE
+          cf precheck --pdk ${{ matrix.pdk }}
 
   STA:
     timeout-minutes: 720
