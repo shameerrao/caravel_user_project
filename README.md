@@ -68,6 +68,7 @@ Create a new repository based on the `caravel_user_project` template and clone i
 
 ```bash
 git clone <your-github-repo-URL>
+pip install chipfoundry-cli
 cd <project_name>
 ```
 
@@ -86,7 +87,6 @@ This creates `.cf/project.json` with project metadata. **This must be run before
 Install the ChipFoundry CLI tool and set up the local environment (PDKs, OpenLane, and Caravel lite):
 
 ```bash
-pip install chipfoundry-cli
 cf setup
 ```
 
