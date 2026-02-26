@@ -54,11 +54,11 @@ A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/us
 
 | Runner | Trigger | What it does |
 |--------|---------|--------------|
-| `ubuntu-latest` (default) or [self-hosted](#github-self-hosted-runner) | Every push/PR, or **Run workflow** in Actions | **hardening** (RTL→GDS for sky130A/sky130B) → **precheck** (downloads hardening artifacts, runs `cf precheck`). **RTL verification** runs in parallel (`cf verify --all`). |
+| `ubuntu-latest` (default) or [self-hosted](#github-self-hosted-runner) | Every push/PR, or **Run workflow** in Actions | **rtl-verification** first (`cf verify --all`); then **hardening** (RTL→GDS for sky130A/sky130B); then **precheck** (downloads hardening artifacts, runs `cf precheck`). |
 
 **Job flow (linked):**
-1. **hardening** — Checkout → ChipFoundry CLI → `cf setup` (PDK + OpenLane) → `get_designs.py` → `cf harden` for each macro → upload artifact (`gds/`, `signoff/`, `verilog/gl/`, `lef/`, `.cf/project.json`).
-2. **rtl-verification** — Runs in parallel; `cf setup` (Caravel, cocotb, PDK) → GPIO config → `cf verify --all`.
+1. **rtl-verification** — Runs first; `cf setup` (Caravel, cocotb, PDK) → GPIO config → `cf verify --all`. Must pass before hardening runs.
+2. **hardening** — Runs after rtl-verification; `cf setup` (PDK + OpenLane) → `get_designs.py` → `cf harden` for each macro → upload artifact (`gds/`, `signoff/`, `verilog/gl/`, `lef/`, `.cf/project.json`).
 3. **precheck** — Depends on **hardening**; downloads the design artifact, configures GPIO, runs `cf precheck`.
 
 To see runs and artifacts: [Actions tab](https://github.com/shameerrao/caravel_user_project/actions).
