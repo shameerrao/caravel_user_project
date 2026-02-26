@@ -1,17 +1,60 @@
+# IDE and editor
 /.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+
+# Precheck and CI
 /precheck_results/
+design_info.yaml
+harden_sequence.txt
+
+# Build and run artifacts
 */tmp
 */*/tmp
 *.hex*
 *.lst
 *.vcd
 *.gtkw
+*.fsdb
+*.key
+
+# Python and virtual envs
 /env
 /venv
 /venv-cocotb
+openlane2-venv
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Caravel / dependencies (installed by cf setup or make)
 /caravel
 /dependencies
 /mgmt_core_wrapper
+
+# OpenLane run outputs (runs/*/logs, reports, tmp)
+openlane/*/runs/
+openlane/*/runs
+*.rpt
+*.log
 /logs
-openlane2-venv
-design_info.yaml
+
+# PDK (large, installed separately)
+/pdk_root
+
+# GDS/LEF/lib build caches (optional: uncomment to ignore generated views)
+# /gds/*.gds
+# /lef/*.lef
+# /lib/*.lib
+# /verilog/gl/
+# /spef/
+# /signoff/
+
+# OS and misc
+.DS_Store
+Thumbs.db
+*.bak
+*.orig

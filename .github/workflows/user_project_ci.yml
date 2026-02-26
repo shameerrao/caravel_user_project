@@ -57,11 +57,12 @@ jobs:
         run: |
           cf setup --pdk ${{ matrix.pdk }} --only-openlane --only-pdk
 
-      - name: Harden Designs
+      - name: Harden Designs (RTL → GDS)
         run: |
           set -e
           python3 .github/scripts/get_designs.py --design ${{ github.workspace }}
           for design in $(cat harden_sequence.txt); do
+            [ -z "$design" ] && continue
             cf harden $design || exit 1
           done
 

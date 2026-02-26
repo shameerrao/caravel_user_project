@@ -11,6 +11,8 @@
 
 ## Table of Contents
 - [Overview](#overview)
+- [This Repository](#this-repository)
+- [GitHub Actions (RTL-to-GDS Pipeline)](#github-actions-rtl-to-gds-pipeline)
 - [Documentation & Resources](#documentation--resources)
 - [Prerequisites](#prerequisites)
 - [Project Structure](#project-structure)
@@ -26,6 +28,41 @@ This repository contains a user project designed for integration into the **Cara
 * **IO Pads:** Configurable general-purpose input/output.
 * **Logic Analyzer Probes:** 128 signals for non-intrusive hardware debugging.
 * **Wishbone Port:** A 32-bit standard bus interface for communication between the RISC-V management core and your custom hardware.
+
+---
+
+## This Repository
+This project is based on [chipfoundry/caravel_user_project](https://github.com/chipfoundry/caravel_user_project) and uses the **SkyWater 130 nm** open-source PDK with the Caravel harness. The RTL-to-GDS flow is driven by **OpenLane** (via ChipFoundry CLI) and runs in CI and locally with industry-standard tools: Docker, Make, Python 3, and optional self-hosted runners.
+
+**Clone and push to your fork:**
+```bash
+git clone https://github.com/shameerrao/caravel_user_project.git
+cd caravel_user_project
+pip install chipfoundry-cli
+cf init
+cf setup
+```
+
+---
+
+## GitHub Actions (RTL-to-GDS Pipeline)
+Two workflows run the full SkyWater 130 flow:
+
+| Workflow | Runner | What it does |
+|----------|--------|--------------|
+| **CI** (`.github/workflows/user_project_ci.yml`) | `ubuntu-latest` | Hardening (RTL→GDS) for sky130A/sky130B, RTL verification, then precheck. Runs on every push/PR. |
+| **RTL-to-GDS (Self-hosted)** (`.github/workflows/rtl-to-gds-self-hosted.yml`) | Self-hosted | Same hardening on your own runner (uses tools on your server). Trigger on push to `main` or manually. |
+
+**RTL-to-GDS steps in CI:**
+1. Checkout → Install ChipFoundry CLI → `cf setup` (PDK + OpenLane).
+2. Generate hardening order from `lvs/user_project_wrapper/lvs_config.json` and run `cf harden <macro>` for each (e.g. `user_proj_example`, then `user_project_wrapper`).
+3. Upload GDS, signoff, and `.cf/project.json` as artifacts.
+4. Separate jobs: RTL verification (`cf verify --all`) and precheck (`cf precheck`).
+
+**Self-hosted runner setup (optional):**
+1. In the repo: **Settings → Actions → Runners → New self-hosted runner**.
+2. Choose Linux and follow the commands to install and start the runner.
+3. Use labels: `self-hosted`, `linux`, `x64`. The workflow `rtl-to-gds-self-hosted.yml` will then run on your machine (Docker and Python 3 required).
 
 ---
 
@@ -64,12 +101,12 @@ A successful Caravel project requires a specific directory layout for the automa
 ## Starting Your Project
 
 ### 1. Repository Setup
-Create a new repository based on the `caravel_user_project` template and clone it to your local machine:
+Clone this repository and install the ChipFoundry CLI:
 
 ```bash
-git clone <your-github-repo-URL>
+git clone https://github.com/shameerrao/caravel_user_project.git
+cd caravel_user_project
 pip install chipfoundry-cli
-cd <project_name>
 ```
 
 ### 2. Project Initialization
@@ -124,6 +161,16 @@ Finalize the top-level user project:
 ```bash
 cf harden user_project_wrapper
 ```
+
+#### Full RTL-to-GDS locally (stock flow)
+From the repo root, after `cf init` and `cf setup`:
+
+```bash
+python3 .github/scripts/get_designs.py --design $(pwd)
+for design in $(cat harden_sequence.txt); do [ -z "$design" ] && continue; cf harden $design || exit 1; done
+```
+
+This hardens `user_proj_example` then `user_project_wrapper`, producing GDS under `gds/` and signoff under `signoff/`.
 
 ### Verification
 
