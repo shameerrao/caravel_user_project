@@ -27,8 +27,12 @@ harden_sequence.txt
 openlane2-venv
 __pycache__/
 *.py[cod]
+*.egg-info/
+.eggs/
 .pytest_cache/
 .mypy_cache/
+.coverage
+htmlcov/
 
 # Caravel / dependencies (installed by cf setup or make)
 /caravel
@@ -45,13 +49,21 @@ openlane/*/runs
 # PDK (large, installed separately)
 /pdk_root
 
-# GDS/LEF/lib build caches (optional: uncomment to ignore generated views)
-# /gds/*.gds
-# /lef/*.lef
-# /lib/*.lib
-# /verilog/gl/
-# /spef/
-# /signoff/
+# Generated design outputs (produced by cf harden / CI; do not commit)
+/gds/
+/lef/
+/lib/
+/verilog/gl/
+/spef/
+/signoff/
+
+# ChipFoundry local state (optional: uncomment if you keep project.json only in CI)
+# /.cf/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
 
 # OS and misc
 .DS_Store

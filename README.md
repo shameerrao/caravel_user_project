@@ -6,6 +6,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![ChipFoundry Marketplace](https://img.shields.io/badge/ChipFoundry-Marketplace-6E40C9.svg)](https://platform.chipfoundry.io/marketplace)
+[![CI](https://github.com/shameerrao/caravel_user_project/actions/workflows/user_project_ci.yml/badge.svg)](https://github.com/shameerrao/caravel_user_project/actions/workflows/user_project_ci.yml)
 
 </div>
 
@@ -13,8 +14,10 @@
 - [Overview](#overview)
 - [This Repository](#this-repository)
 - [GitHub Actions (RTL-to-GDS Pipeline)](#github-actions-rtl-to-gds-pipeline)
+- [GitHub self-hosted runner](#github-self-hosted-runner)
 - [Documentation & Resources](#documentation--resources)
 - [Prerequisites](#prerequisites)
+- [Environment script (EDA tools)](#environment-script-eda-tools)
 - [Project Structure](#project-structure)
 - [Starting Your Project](#starting-your-project)
 - [Development Flow](#development-flow)
@@ -39,6 +42,7 @@ This project is based on [chipfoundry/caravel_user_project](https://github.com/c
 git clone https://github.com/shameerrao/caravel_user_project.git
 cd caravel_user_project
 pip install chipfoundry-cli
+source env.sh
 cf init
 cf setup
 ```
@@ -46,23 +50,72 @@ cf setup
 ---
 
 ## GitHub Actions (RTL-to-GDS Pipeline)
-Two workflows run the full SkyWater 130 flow:
+A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/user_project_ci.yml) (`.github/workflows/user_project_ci.yml`).
 
-| Workflow | Runner | What it does |
-|----------|--------|--------------|
-| **CI** (`.github/workflows/user_project_ci.yml`) | `ubuntu-latest` | Hardening (RTL→GDS) for sky130A/sky130B, RTL verification, then precheck. Runs on every push/PR. |
-| **RTL-to-GDS (Self-hosted)** (`.github/workflows/rtl-to-gds-self-hosted.yml`) | Self-hosted | Same hardening on your own runner (uses tools on your server). Trigger on push to `main` or manually. |
+| Runner | Trigger | What it does |
+|--------|---------|--------------|
+| `ubuntu-latest` (default) or [self-hosted](#github-self-hosted-runner) | Every push/PR, or **Run workflow** in Actions | **hardening** (RTL→GDS for sky130A/sky130B) → **precheck** (downloads hardening artifacts, runs `cf precheck`). **RTL verification** runs in parallel (`cf verify --all`). |
 
-**RTL-to-GDS steps in CI:**
-1. Checkout → Install ChipFoundry CLI → `cf setup` (PDK + OpenLane).
-2. Generate hardening order from `lvs/user_project_wrapper/lvs_config.json` and run `cf harden <macro>` for each (e.g. `user_proj_example`, then `user_project_wrapper`).
-3. Upload GDS, signoff, and `.cf/project.json` as artifacts.
-4. Separate jobs: RTL verification (`cf verify --all`) and precheck (`cf precheck`).
+**Job flow (linked):**
+1. **hardening** — Checkout → ChipFoundry CLI → `cf setup` (PDK + OpenLane) → `get_designs.py` → `cf harden` for each macro → upload artifact (`gds/`, `signoff/`, `verilog/gl/`, `lef/`, `.cf/project.json`).
+2. **rtl-verification** — Runs in parallel; `cf setup` (Caravel, cocotb, PDK) → GPIO config → `cf verify --all`.
+3. **precheck** — Depends on **hardening**; downloads the design artifact, configures GPIO, runs `cf precheck`.
 
-**Self-hosted runner setup (optional):**
-1. In the repo: **Settings → Actions → Runners → New self-hosted runner**.
-2. Choose Linux and follow the commands to install and start the runner.
-3. Use labels: `self-hosted`, `linux`, `x64`. The workflow `rtl-to-gds-self-hosted.yml` will then run on your machine (Docker and Python 3 required).
+To see runs and artifacts: [Actions tab](https://github.com/shameerrao/caravel_user_project/actions).
+
+---
+
+## GitHub self-hosted runner
+The CI workflow uses `ubuntu-latest` by default. To run the same workflow on your own machine (e.g. for faster or private runs), add a self-hosted runner and point the workflow at it.
+
+### 1. Requirements on the runner machine
+- **OS:** Linux (recommended; x64).
+- **Docker:** [Install Docker](https://docs.docker.com/engine/install/) and ensure the runner user can run `docker` (e.g. in `docker` group).
+- **Python:** Python 3.8+ with `pip` (for ChipFoundry CLI).
+- **Disk:** Enough space for PDK, OpenLane, and build artifacts (tens of GB recommended).
+- **Network:** Outbound HTTPS to GitHub and to pull container images.
+
+### 2. Add the runner in GitHub
+1. Open this repo on GitHub → **Settings** → **Actions** → **Runners**.
+2. Click **New self-hosted runner**.
+3. Select **Linux** and **x64** (or your architecture).
+4. GitHub will show a block of commands; run them on your machine in a dedicated directory (e.g. `~/actions-runner`).
+
+### 3. Install and configure (on the runner machine)
+Run the commands GitHub provides. They look like:
+
+```bash
+# Create a folder and enter it
+mkdir -p ~/actions-runner && cd ~/actions-runner
+
+# Download the runner package (use the URL and token from GitHub’s instructions)
+curl -o actions-runner-linux-x64-2.311.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.311.0/actions-runner-linux-x64-2.311.0.tar.gz
+tar xzf actions-runner-linux-x64-2.311.0.tar.gz
+
+# Configure (replace <token> and <repo> with the values from GitHub)
+./config.sh --url https://github.com/OWNER/caravel_user_project --token <token>
+
+# Optional: install as a service so it starts on boot
+./svc.sh install
+./svc.sh start
+```
+
+Use the exact **URL** and **token** from the GitHub “Add new self-hosted runner” page; the script will prompt for labels.
+
+### 4. Labels
+When configuring the runner, use at least:
+
+- `self-hosted`
+- `linux`
+- `x64`
+
+To use this runner for CI, edit [`.github/workflows/user_project_ci.yml`](.github/workflows/user_project_ci.yml) and set `runs-on: [self-hosted, linux, x64]` for the jobs that should run on your machine (e.g. `hardening`, `rtl-verification`, `precheck`). Leave `ubuntu-latest` if you want those jobs to run on GitHub-hosted runners.
+
+### 5. Verify
+- In **Settings → Actions → Runners**, the new runner should appear as “Idle”.
+- Push a commit or go to **Actions** → **CI** → **Run workflow** to trigger a run; if you changed the workflow to use the self-hosted runner, the jobs will run on your machine.
+
+For more details and security notes, see [GitHub: Adding self-hosted runners](https://docs.github.com/en/actions/guides/adding-self-hosted-runners).
 
 ---
 
@@ -81,6 +134,34 @@ Ensure your environment meets the following requirements:
 1. **Docker** [Linux](https://docs.docker.com/desktop/setup/install/linux/ubuntu/) | [Windows](https://docs.docker.com/desktop/setup/install/windows-install/) | [Mac](https://docs.docker.com/desktop/setup/install/mac-install/)
 2. **Python 3.8+** with `pip`.
 3. **Git**: For repository management.
+
+---
+
+## Environment script (EDA tools)
+Before running `cf`, `make`, or any EDA flow locally, source the project environment so paths and tools are set correctly:
+
+```bash
+source env.sh
+```
+
+Optional: set the PDK when sourcing (default is `sky130A`):
+
+```bash
+source env.sh sky130B
+```
+
+This sets (among others) `UPRJ_ROOT`, `PDK_ROOT`, `CARAVEL_ROOT`, `OPENLANE_ROOT`, `MCW_ROOT`, `PDK`, and `PDKPATH`. Use the same shell (or source again in new terminals) when running `cf setup`, `cf harden`, `cf verify`, `cf precheck`, or `make` targets.
+
+| Variable | Default (after `cf setup`) |
+|----------|----------------------------|
+| `UPRJ_ROOT` | Project root (directory containing `env.sh`) |
+| `PDK_ROOT` | `$UPRJ_ROOT/dependencies/pdks` |
+| `CARAVEL_ROOT` | `$UPRJ_ROOT/caravel` |
+| `OPENLANE_ROOT` | `$UPRJ_ROOT/dependencies/openlane_src` |
+| `MCW_ROOT` | `$UPRJ_ROOT/mgmt_core_wrapper` |
+| `PDK` | `sky130A` (or `sky130B` if you passed it to `env.sh`) |
+
+For local design verification (DV) without Docker, you can also set `GCC_PATH` to your RV32I toolchain before sourcing; see `verilog/dv/local-install.md`.
 
 ---
 
@@ -107,6 +188,7 @@ Clone this repository and install the ChipFoundry CLI:
 git clone https://github.com/shameerrao/caravel_user_project.git
 cd caravel_user_project
 pip install chipfoundry-cli
+source env.sh
 ```
 
 ### 2. Project Initialization
@@ -115,15 +197,17 @@ pip install chipfoundry-cli
 > Run this first! Initialize your project configuration:
 
 ```bash
+source env.sh
 cf init
 ```
 
 This creates `.cf/project.json` with project metadata. **This must be run before any other commands** (`cf setup`, `cf gpio-config`, `cf harden`, `cf precheck`, `cf verify`).
 
 ### 3. Environment Setup
-Install the ChipFoundry CLI tool and set up the local environment (PDKs, OpenLane, and Caravel lite):
+Set EDA paths and install dependencies (PDKs, OpenLane, Caravel lite):
 
 ```bash
+source env.sh
 cf setup
 ```
 
@@ -166,6 +250,7 @@ cf harden user_project_wrapper
 From the repo root, after `cf init` and `cf setup`:
 
 ```bash
+source env.sh
 python3 .github/scripts/get_designs.py --design $(pwd)
 for design in $(cat harden_sequence.txt); do [ -z "$design" ] && continue; cf harden $design || exit 1; done
 ```
@@ -258,6 +343,7 @@ Before submitting your design for fabrication, run the local precheck to ensure 
 > GPIO configuration is required before running precheck. Make sure you've run `cf gpio-config` first.
 
 ```bash
+source env.sh
 cf precheck
 ```
 

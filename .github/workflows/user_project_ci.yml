@@ -1,3 +1,5 @@
+# Full RTL-to-GDS CI: hardening (RTL→GDS) → artifacts → precheck; RTL verification runs in parallel.
+# Jobs: hardening (sky130A/sky130B) → precheck (needs: hardening artifacts). rtl-verification independent.
 name: CI
 
 on:
@@ -73,6 +75,8 @@ jobs:
           path: |
             ${{ github.workspace }}/gds
             ${{ github.workspace }}/signoff
+            ${{ github.workspace }}/verilog/gl
+            ${{ github.workspace }}/lef
             ${{ github.workspace }}/.cf/project.json
           retention-days: 1
 
