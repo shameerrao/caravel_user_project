@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Environment setup for Caravel user project (RTL-to-GDS, verification, precheck).
-# Source this file in your shell before running cf, make, or other EDA flows:
+# Source this file in your shell before running make or other EDA flows:
 #
 #   source env.sh
 #   # or with a specific PDK:
@@ -30,7 +30,7 @@ if [ -n "$1" ]; then
 fi
 export PDK="${PDK:-sky130A}"
 
-# Paths installed by cf setup (relative to project root)
+# Paths installed by `make setup` (relative to project root)
 export CARAVEL_ROOT="${CARAVEL_ROOT:-$UPRJ_ROOT/caravel}"
 export MCW_ROOT="${MCW_ROOT:-$UPRJ_ROOT/mgmt_core_wrapper}"
 export PDK_ROOT="${PDK_ROOT:-$UPRJ_ROOT/dependencies/pdks}"
@@ -43,7 +43,7 @@ export PDKPATH="${PDK_ROOT}/${PDK}"
 # Precheck (optional; default $HOME/mpw_precheck)
 export PRECHECK_ROOT="${PRECHECK_ROOT:-$HOME/mpw_precheck}"
 
-# ChipFoundry / OpenLane
+# PDK/LibreLane
 export CIEL_DATA_SOURCE="${CIEL_DATA_SOURCE:-static-web:https://chipfoundry.github.io/ciel-releases}"
 export DISABLE_LVS="${DISABLE_LVS:-0}"
 
@@ -75,4 +75,4 @@ echo "  UPRJ_ROOT=$UPRJ_ROOT"
 echo "  PDK_ROOT=$PDK_ROOT"
 echo "  CARAVEL_ROOT=$CARAVEL_ROOT"
 echo "  OPENLANE_ROOT=$OPENLANE_ROOT"
-echo "Run 'cf setup' if dependencies are not installed yet."
+echo "Run 'DISABLE_DEPRECATED_MAKEFILE_PROMPT=1 make setup' if dependencies are not installed yet."

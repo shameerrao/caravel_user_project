@@ -39,21 +39,6 @@ This repository contains a user project designed for integration into the **Cara
 
 ---
 
-## This Repository
-This project is based on [chipfoundry/caravel_user_project](https://github.com/chipfoundry/caravel_user_project) and uses the **SkyWater 130 nm** open-source PDK with the Caravel harness. The RTL-to-GDS flow is driven by **OpenLane** (via ChipFoundry CLI) and runs in CI and locally with industry-standard tools: Docker, Make, Python 3, and optional self-hosted runners.
-
-**Clone this repo and set up:**
-```bash
-git clone https://github.com/shameerrao/caravel_user_project.git
-cd caravel_user_project
-pip install chipfoundry-cli
-source env.sh
-cf init
-cf setup
-```
-
----
-
 ## Tapeout flow: Every Command
 
 Use this section as a single reference for the full tapeout flow. Run from the **project root** unless noted. In new terminals, run **source env.sh** again (and activate your venv if you use one).
@@ -68,15 +53,9 @@ cd caravel_user_project
 **Install tools (pick one):**
 
 ```bash
-# Linux: system + Python deps (recommended first time)
-./scripts/install_requirements.sh
-
-# Or use a virtualenv (recommended)
+# Use a virtualenv (recommended)
 ./scripts/install_requirements.sh --venv
 source venv/bin/activate
-
-# Or Python only (any OS, if Docker + Python already installed)
-pip install -r requirements.txt
 ```
 
 Ensure **Docker** is installed and running ([install](https://docs.docker.com/get-docker/) if needed).
@@ -87,13 +66,13 @@ Ensure **Docker** is installed and running ([install](https://docs.docker.com/ge
 
 ```bash
 source env.sh
-cf init
-cf setup
+export DISABLE_DEPRECATED_MAKEFILE_PROMPT=1
+make setup
 ```
 
 - `source env.sh` — Sets `PDK_ROOT`, `CARAVEL_ROOT`, `OPENLANE_ROOT`, etc. Do this in every new shell.
-- `cf init` — Creates `.cf/project.json`. Required once per clone.
-- `cf setup` — Downloads PDK, OpenLane, Caravel lite, cocotb. Run once (or when switching PDK).
+- `DISABLE_DEPRECATED_MAKEFILE_PROMPT=1` — Allows Makefile setup targets to run non-interactively (CI-friendly).
+- `make setup` — Installs Caravel (lite), management core wrapper, PDK, LibreLane/OpenLane, cocotb, precheck images.
 
 ---
 
@@ -101,10 +80,10 @@ cf setup
 
 ```bash
 source env.sh
-cf gpio-config
+python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL
 ```
 
-Interactive: set power-on state for GPIO 5–37. Updates `verilog/rtl/user_defines.v` and `.cf/project.json`. Required before `cf verify` and `cf precheck`.
+This updates `verilog/rtl/user_defines.v` so GPIO 5–37 have valid power-on modes (required for sim and precheck).
 
 ---
 
@@ -122,12 +101,12 @@ No single command; edit files as needed.
 
 ```bash
 source env.sh
-cf verify <test_name>              # One test, RTL
-cf verify <test_name> --sim gl     # One test, gate-level
-cf verify --all                    # All tests (RTL)
+make verify-<test_name>-rtl        # One test, RTL
+make verify-<test_name>-gl         # One test, gate-level
+make verify-all-rtl                # All tests (RTL)
 ```
 
-Examples: `cf verify hello_world`, `cf verify gpio_test`, `cf verify --all`. Run after GPIO config and after RTL changes.
+Examples: `make verify-io_ports-rtl`, `make verify-wb_port-rtl`, `make verify-all-rtl`. Run after GPIO config and after RTL changes.
 
 ---
 
@@ -137,9 +116,9 @@ Examples: `cf verify hello_world`, `cf verify gpio_test`, `cf verify --all`. Run
 
 ```bash
 source env.sh
-cf harden --list                   # List macros
-cf harden user_proj_example        # Harden a macro
-cf harden user_project_wrapper     # Then the top wrapper
+make -C openlane list              # List designs
+make user_proj_example             # Harden a macro (runs LibreLane)
+make user_project_wrapper          # Then the top wrapper
 ```
 
 **Option B — full flow (all macros in dependency order):**
@@ -147,7 +126,7 @@ cf harden user_project_wrapper     # Then the top wrapper
 ```bash
 source env.sh
 python3 .github/scripts/get_designs.py --design $(pwd)
-for design in $(cat harden_sequence.txt); do [ -z "$design" ] && continue; cf harden $design || exit 1; done
+for design in $(cat harden_sequence.txt); do [ -z "$design" ] && continue; make "$design" || exit 1; done
 ```
 
 Outputs: `gds/`, `lef/`, `verilog/gl/`, `signoff/`.
@@ -158,10 +137,11 @@ Outputs: `gds/`, `lef/`, `verilog/gl/`, `signoff/`.
 
 ```bash
 source env.sh
-cf precheck
+export DISABLE_DEPRECATED_MAKEFILE_PROMPT=1
+make run-precheck
 ```
 
-Run after hardening and after GPIO config. Optional: `cf precheck --disable-lvs` or `cf precheck --checks license --checks makefile`.
+Run after hardening and after GPIO config. Optional: `DISABLE_LVS=1 make run-precheck`.
 
 ---
 
@@ -179,15 +159,16 @@ make caravel-sta
 
 ### Quick copy-paste sequence (after first-time setup)
 
-Once clone, `install_requirements`, `cf init`, and `cf setup` are done:
+Once clone and `make setup` are done:
 
 ```bash
 source env.sh
-cf gpio-config              # If not done yet
-cf verify --all             # Sim
+python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL   # If not done yet
+make verify-all-rtl                                                      # Sim
 python3 .github/scripts/get_designs.py --design $(pwd)
-for design in $(cat harden_sequence.txt); do [ -z "$design" ] && continue; cf harden $design || exit 1; done
-cf precheck
+for design in $(cat harden_sequence.txt); do [ -z "$design" ] && continue; make "$design" || exit 1; done
+export DISABLE_DEPRECATED_MAKEFILE_PROMPT=1
+make run-precheck
 ```
 
 ---
@@ -197,14 +178,13 @@ A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/us
 
 | Runner | Trigger | What it does |
 |--------|---------|--------------|
-| `ubuntu-latest` (default) or [self-hosted](#github-self-hosted-runner) | Every push/PR, or **Run workflow** in Actions | **Init** (checkout, install CLI, create `.cf`); then **sim-rtl** (RTL sim for sky130A/sky130B); then **hardening** (RTL→GDS); then **precheck**; on any failure, **Collect logs on failure** runs and uploads a summary plus per-job logs. |
+| `ubuntu-latest` (default) or [self-hosted](#github-self-hosted-runner) | Every push/PR, or **Run workflow** in Actions | **sim-rtl** (RTL sim for sky130A/sky130B); then **hardening** (RTL→GDS); then **precheck**; on any failure, **Collect logs on failure** runs and uploads a summary plus per-job logs. |
 
-**Job flow (linked):**
-1. **Init** — Checkout, install ChipFoundry CLI, create `.cf/project.json`. Uploads init artifact for downstream jobs.
-2. **sim-rtl** — Depends on Init; `cf setup` (Caravel, cocotb, PDK) → GPIO config → `cf verify --all`. Must pass before hardening. On failure, uploads sim-rtl logs.
-3. **hardening** — Depends on sim-rtl; `cf setup` (PDK + OpenLane) → `get_designs.py` → `cf harden` for each macro → upload design artifact. On failure, uploads OpenLane runs and `.cf`.
-4. **precheck** — Depends on hardening; downloads design artifact, configures GPIO, updates `user_defines.v`, runs `cf precheck`. On failure, uploads precheck_results and `.cf`.
-5. **Collect logs on failure** — Runs only when any previous job fails; uploads a failure-summary artifact and relies on per-job “Upload logs on failure” artifacts for debugging.
+**Job flow:**
+1. **sim-rtl** — `make setup` (Caravel, cocotb, PDK) → GPIO defaults → `make verify-all-rtl`. Must pass before hardening. On failure, uploads sim logs.
+2. **hardening** — `make setup` (PDK + LibreLane/OpenLane) → `get_designs.py` → `make <design>` for each macro → upload design artifact. On failure, uploads OpenLane runs.
+3. **precheck** — Downloads design artifact, configures GPIO, runs `make run-precheck`. On failure, uploads precheck_results.
+4. **Collect logs on failure** — Runs only when any previous job fails; uploads a failure-summary artifact and relies on per-job “Upload logs on failure” artifacts for debugging.
 
 To see runs and artifacts: **Actions** tab on GitHub: [shameerrao/caravel_user_project/actions](https://github.com/shameerrao/caravel_user_project/actions). If you use your own fork, use your fork’s Actions URL instead.
 
@@ -216,7 +196,7 @@ The CI workflow uses `ubuntu-latest` by default. To run the same workflow on you
 ### 1. Requirements on the runner machine
 - **OS:** Linux (recommended; x64).
 - **Docker:** [Install Docker](https://docs.docker.com/engine/install/) and ensure the runner user can run `docker` (e.g. in `docker` group).
-- **Python:** Python 3.8+ with `pip` (for ChipFoundry CLI).
+- **Python:** Python 3.8+ with `pip`.
 - **Disk:** Enough space for PDK, OpenLane, and build artifacts (tens of GB recommended).
 - **Network:** Outbound HTTPS to GitHub and to pull container images.
 
@@ -302,7 +282,7 @@ pip install -r requirements.txt
 ---
 
 ## Environment script (EDA tools)
-Before running `cf`, `make`, or any EDA flow locally, source the project environment so paths and tools are set correctly:
+Before running `make` or any EDA flow locally, source the project environment so paths and tools are set correctly:
 
 ```bash
 source env.sh
@@ -314,9 +294,9 @@ Optional: set the PDK when sourcing (default is `sky130A`):
 source env.sh sky130B
 ```
 
-This sets (among others) `UPRJ_ROOT`, `PDK_ROOT`, `CARAVEL_ROOT`, `OPENLANE_ROOT`, `MCW_ROOT`, `PDK`, and `PDKPATH`. Use the same shell (or source again in new terminals) when running `cf setup`, `cf harden`, `cf verify`, `cf precheck`, or `make` targets.
+This sets (among others) `UPRJ_ROOT`, `PDK_ROOT`, `CARAVEL_ROOT`, `OPENLANE_ROOT`, `MCW_ROOT`, `PDK`, and `PDKPATH`. Use the same shell (or source again in new terminals) when running hardening, verification, precheck, or other `make` targets.
 
-| Variable | Default (after `cf setup`) |
+| Variable | Default (after `make setup`) |
 |----------|----------------------------|
 | `UPRJ_ROOT` | Project root (directory containing `env.sh`) |
 | `PDK_ROOT` | `$UPRJ_ROOT/dependencies/pdks` |
@@ -345,147 +325,65 @@ A successful Caravel project requires a specific directory layout for the automa
 
 ## Starting Your Project
 
+This section summarizes the concepts behind the **student tapeout flow** without adding new commands.  
+Follow the commands in [Student tapeout flow: every command](#student-tapeout-flow-every-command); use this as a checklist of what each stage is doing.
+
 ### 1. Repository Setup
-Clone this repository and install the ChipFoundry CLI:
+- Clone this repository on a Linux machine with Docker and Python 3.8+.
+- Install Python dependencies (preferably in a virtualenv) using `./scripts/install_requirements.sh --venv`.
+- Always activate your venv and `source env.sh` before running any `make` targets.
 
-```bash
-git clone https://github.com/shameerrao/caravel_user_project.git
-cd caravel_user_project
-pip install chipfoundry-cli
-source env.sh
-```
+### 2. Environment Setup
+- `make setup` (with `DISABLE_DEPRECATED_MAKEFILE_PROMPT=1`) installs:
+  - Caravel Lite (golden SoC wrapper and reference GDS/LEF/netlists).
+  - Management core wrapper (`mgmt_core_wrapper`).
+  - PDKs under `dependencies/pdks`.
+  - LibreLane/OpenLane and timing scripts for hardening and STA.
 
-### 2. Project Initialization
+### 3. Development Flow (conceptual)
 
-> [!IMPORTANT]
-> Run this first! Initialize your project configuration:
+- **GPIO configuration**: Set power-on modes for GPIO 5–37 by editing `verilog/rtl/user_defines.v`.  
+  The helper script `scripts/gpio_config.py` is the recommended way to keep this consistent.
 
-```bash
-source env.sh
-cf init
-```
+- **Simulation (DV)**:
+  - Tests live under `verilog/dv/` (RTL and cocotb).
+  - `make verify-<test_name>-rtl` / `make verify-<test_name>-gl` use a DV Docker image plus your hardened Caravel to run tests.
+  - Always configure GPIOs before running verification.
 
-This creates `.cf/project.json` with project metadata. **This must be run before any other commands** (`cf setup`, `cf gpio-config`, `cf harden`, `cf precheck`, `cf verify`).
+- **Hardening (RTL → GDS)**:
+  - Each macro has an `openlane/<macro_name>/config.json` (or `config.tcl`) that defines its OpenLane run.
+  - `make -C openlane list` shows available designs.
+  - `make <macro_name>` runs LibreLane/OpenLane for that macro.
+  - `python3 .github/scripts/get_designs.py --design $(pwd)` plus `make "$design"` in a loop hardens all macros in dependency order (see the tapeout flow section above).
 
-### 3. Environment Setup
-Set EDA paths and install dependencies (PDKs, OpenLane, Caravel lite):
+- **Precheck (shuttle readiness)**:
+  - `make run-precheck` runs the Efabless MPW precheck in a container using your hardened `user_project_wrapper.gds`.
+  - This includes LVS/DRC, XOR, documentation/license checks, and multiple KLayout-based rule decks.
+  - For quick iterations, you can set `DISABLE_LVS=1` to skip LVS while keeping the other checks.
 
-```bash
-source env.sh
-cf setup
-```
-
-The `cf setup` command installs:
-
-- Caravel Lite: The Caravel SoC template.
-- Management Core: RISC-V management area required for simulation.
-- OpenLane: The RTL-to-GDS hardening flow.
-- PDK: Skywater 130nm process design kit.
-- Timing Scripts: For Static Timing Analysis (STA).
-
----
-
-## Development Flow
-
-### Hardening the Design
-Hardening is the process of synthesizing your RTL and performing Place & Route (P&R) to create a GDSII layout.
-
-#### Macro Hardening
-Create a subdirectory for each custom macro under `openlane/` containing your `config.tcl`.
-
-```bash
-cf harden --list         # List detected configurations
-cf harden <macro_name>   # Harden a specific macro
-```
-
-#### Integration
-Instantiate your module(s) in `verilog/rtl/user_project_wrapper.v`.
-
-Update `openlane/user_project_wrapper/config.json` environment variables (`VERILOG_FILES_BLACKBOX`, `EXTRA_LEFS`, `EXTRA_GDS_FILES`) to point to your new macros.
-
-#### Wrapper Hardening
-Finalize the top-level user project:
-
-```bash
-cf harden user_project_wrapper
-```
-
-#### Full RTL-to-GDS locally (stock flow)
-From the repo root, after `cf init` and `cf setup`:
-
-```bash
-source env.sh
-python3 .github/scripts/get_designs.py --design $(pwd)
-for design in $(cat harden_sequence.txt); do [ -z "$design" ] && continue; cf harden $design || exit 1; done
-```
-
-This hardens `user_proj_example` then `user_project_wrapper`, producing GDS under `gds/` and signoff under `signoff/`.
-
-### Verification
-
-#### 1. Simulation
-We use cocotb for functional verification. Ensure your file lists are updated in `verilog/includes/`.
-
-**Configure GPIO settings first (required before verification):**
-
-```bash
-cf gpio-config
-```
-
-This interactive command will:
-- Configure all GPIO pins interactively
-- Automatically update `verilog/rtl/user_defines.v`
-- Automatically run `gen_gpio_defaults.py` to generate GPIO defaults for simulation
-
-GPIO configuration is required before running any verification tests.
-
-Run RTL Simulation:
-
-```bash
-cf verify <test_name>
-```
-
-Run Gate-Level (GL) Simulation:
-
-```bash
-cf verify <test_name> --sim gl
-```
-
-Run all tests:
-
-```bash
-cf verify --all
-```
-
-#### 2. Static Timing Analysis (STA)
-Verify that your design meets timing constraints using OpenSTA:
-
-```bash
-make extract-parasitics
-make create-spef-mapping
-make caravel-sta
-```
-
-> [!NOTE]
-> Run `make setup-timing-scripts` if you need to update the STA environment.
+- **Static Timing Analysis (STA)**:
+  - After hardening and parasitic extraction, `make caravel-sta` runs multi-corner timing on the Caravel+user design.
+  - Use this to debug slow paths and validate that the design meets timing before tapeout.
 
 ---
 
 ## GPIO Configuration
-Configure the power-on default configuration for each GPIO using the interactive CLI tool.
+Configure the power-on default configuration for each GPIO by editing `verilog/rtl/user_defines.v`.
 
-**Use the GPIO configuration command:**
+**Recommended (CLI-free) helper script:**
 ```bash
-cf gpio-config
+python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL
 ```
 
-This command will:
-- Present an interactive form for configuring GPIO pins 5-37 (GPIO 0-4 are fixed system pins)
-- Show available GPIO modes with descriptions
-- Allow selection by number, partial key, or full mode name
-- Save configuration to `.cf/project.json` (as hex values)
-- Automatically update `verilog/rtl/user_defines.v` with the new configuration
-- Automatically run `gen_gpio_defaults.py` to generate GPIO defaults for simulation (if Caravel is installed)
+Examples:
+
+```bash
+# Set all GPIO 5-37 to a specific mode
+python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL
+
+# Set a range and a couple of pins
+python3 scripts/gpio_config.py --set 5-10=GPIO_MODE_USER_STD_OUTPUT --set 11,12=GPIO_MODE_USER_STD_INPUT_PULLUP
+```
 
 **GPIO Pin Information:**
 - GPIO[0] to GPIO[4]: Preset system pins (do not change).
@@ -496,7 +394,7 @@ This command will:
 - User modes: `user_input_nopull`, `user_input_pulldown`, `user_input_pullup`, `user_output`, `user_bidirectional`, `user_output_monitored`, `user_analog`
 
 > [!NOTE]
-> GPIO configuration is required before running `cf precheck` or `cf verify`. Invalid modes cannot be saved - all GPIOs must have valid configurations.
+> GPIO configuration is required before running precheck or verification. Invalid modes will cause simulation/precheck failures.
 
 ---
 
@@ -504,18 +402,20 @@ This command will:
 Before submitting your design for fabrication, run the local precheck to ensure it complies with all shuttle requirements:
 
 > [!IMPORTANT]
-> GPIO configuration is required before running precheck. Make sure you've run `cf gpio-config` first.
+> GPIO configuration is required before running precheck.
 
 ```bash
 source env.sh
-cf precheck
+python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL
+export DISABLE_DEPRECATED_MAKEFILE_PROMPT=1
+make run-precheck
 ```
 
 You can also run specific checks or disable LVS:
 
 ```bash
-cf precheck --disable-lvs                    # Skip LVS check
-cf precheck --checks license --checks makefile  # Run specific checks only
+# Skip LVS check
+DISABLE_LVS=1 make run-precheck
 ```
 
 ---
@@ -593,5 +493,5 @@ All other commands in this README use paths relative to the project root (e.g. `
 - [ ] Full Chip Simulation passes for both RTL and GL.
 - [ ] Hardened Macros are LVS and DRC clean.
 - [ ] user_project_wrapper matches the required pin order/template.
-- [ ] Design passes the local cf precheck.
+- [ ] Design passes the local precheck (`make run-precheck`).
 - [ ] Documentation (this README) is updated with project-specific details.

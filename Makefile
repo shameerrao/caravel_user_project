@@ -34,7 +34,9 @@ export PDKPATH?=$(PDK_ROOT)/$(PDK)
 
 PYTHON_BIN ?= python3
 
-ROOTLESS ?= 0
+# Rootless container engines (notably Podman-as-docker) often fail when forcing `-u uid:gid`.
+# Default ROOTLESS=1 for Podman, but allow override via environment (e.g. ROOTLESS=0).
+ROOTLESS ?= $(if $(findstring podman,$(shell docker --version 2>/dev/null)),1,0)
 USER_ARGS = -u $$(id -u $$USER):$$(id -g $$USER)
 ifeq ($(ROOTLESS), 1)
 	USER_ARGS =
@@ -96,13 +98,13 @@ check-deprecated:
 		exit 0; \
 	fi; \
 	if ! [ -t 0 ]; then \
-		printf "ERROR: This Makefile target is deprecated and requires confirmation.\n"; \
-		printf "Use the cf CLI instead, or set DISABLE_DEPRECATED_MAKEFILE_PROMPT=1 to bypass.\n"; \
+		printf "ERROR: This Makefile target requires interactive confirmation.\n"; \
+		printf "Set DISABLE_DEPRECATED_MAKEFILE_PROMPT=1 to bypass (recommended for CI).\n"; \
 		exit 1; \
 	fi; \
-	printf "\033[33mWARNING: Deprecated Makefile target.\033[0m\n"; \
-	printf "\033[33mInstall the cf CLI:\033[0m\n"; \
-	printf "  pip install cf-cli\n"; \
+	printf "\033[33mWARNING: This Makefile target prompts for confirmation.\033[0m\n"; \
+	printf "\033[33mTo run non-interactively (e.g. CI), set:\033[0m\n"; \
+	printf "  export DISABLE_DEPRECATED_MAKEFILE_PROMPT=1\n"; \
 	printf "\033[33mContinue? [y/N]: \033[0m"; \
 	read -r reply; \
 	case "$$reply" in \
@@ -122,7 +124,7 @@ install:
 # Install DV setup
 .PHONY: simenv
 simenv:
-	docker pull chipfoundry/dv:latest
+	docker pull chipfoundry/dv:cocotb
 
 # Install cocotb docker
 .PHONY: simenv-cocotb
@@ -143,7 +145,7 @@ cocotb-dv-targets-gl=$(cocotb-dv_patterns:%=cocotb-verify-%-gl)
 dv-targets-gl-sdf=$(dv_patterns:%=verify-%-gl-sdf)
 
 TARGET_PATH=$(shell pwd)
-verify_command="source ~/.bashrc && cd ${TARGET_PATH}/verilog/dv/$* && export SIM=${SIM} && make"
+verify_command="cd ${TARGET_PATH}/verilog/dv/$* && export SIM=${SIM} && make"
 dv_base_dependencies=simenv
 docker_run_verify=\
 	docker run \
@@ -153,15 +155,16 @@ docker_run_verify=\
 		-v ${MCW_ROOT}:${MCW_ROOT} \
 		-e TARGET_PATH=${TARGET_PATH} -e PDK_ROOT=${PDK_ROOT} \
 		-e CARAVEL_ROOT=${CARAVEL_ROOT} \
-		-e TOOLS=/foss/tools/riscv-gnu-toolchain-rv32i/217e7f3debe424d61374d31e33a091a630535937 \
+		-e TOOLS=/opt/riscv \
+		-e GCC_PREFIX=riscv32-unknown-elf \
 		-e DESIGNS=$(TARGET_PATH) \
 		-e USER_PROJECT_VERILOG=$(TARGET_PATH)/verilog \
 		-e PDK=$(PDK) \
 		-e CORE_VERILOG_PATH=$(TARGET_PATH)/mgmt_core_wrapper/verilog \
 		-e CARAVEL_VERILOG_PATH=$(TARGET_PATH)/caravel/verilog \
 		-e MCW_ROOT=$(MCW_ROOT) \
-		chipfoundry/dv:latest \
-		sh -c $(verify_command)
+		chipfoundry/dv:cocotb \
+		bash -lc $(verify_command)
 
 .PHONY: verify
 verify: $(dv-targets-rtl)
@@ -246,31 +249,69 @@ precheck: check-deprecated
 .PHONY: run-precheck
 run-precheck: check-deprecated check-pdk check-precheck
 	@if [ "$$DISABLE_LVS" = "1" ]; then\
-		$(eval INPUT_DIRECTORY := $(shell pwd)) \
+		ORIG_DIR="$$(pwd)"; \
+		STAGE_DIR="$$(mktemp -d)"; \
+		tar -C "$$ORIG_DIR" -cf - \
+			--exclude='./.git' \
+			--exclude='./.cache' \
+			--exclude='./precheck_results' \
+			--exclude='./venv' \
+			--exclude='./venv-*' \
+			--exclude='./openlane/.venv' \
+			--exclude='./openlane/*/runs' \
+			--exclude='./dependencies' \
+			--exclude='./caravel' \
+			--exclude='./mgmt_core_wrapper' \
+			. | tar -C "$$STAGE_DIR" -xf -; \
 		cd $(PRECHECK_ROOT) && \
-		docker run -it -v $(PRECHECK_ROOT):$(PRECHECK_ROOT) \
-		-v $(INPUT_DIRECTORY):$(INPUT_DIRECTORY) \
-		-v $(PDK_ROOT):$(PDK_ROOT) \
-		-v $(HOME)/.ipm:$(HOME)/.ipm \
-		-e INPUT_DIRECTORY=$(INPUT_DIRECTORY) \
-		-e PDK_PATH=$(PDK_ROOT)/$(PDK) \
-		-e PDK_ROOT=$(PDK_ROOT) \
-		-e PDKPATH=$(PDKPATH) \
-		-u $(shell id -u $(USER)):$(shell id -g $(USER)) \
-		chipfoundry/mpw_precheck:latest bash -c "cd $(PRECHECK_ROOT) ; python3 mpw_precheck.py --input_directory $(INPUT_DIRECTORY) --pdk_path $(PDK_ROOT)/$(PDK) license makefile default documentation consistency gpio_defines xor magic_drc klayout_feol klayout_beol klayout_offgrid klayout_met_min_ca_density klayout_pin_label_purposes_overlapping_drawing klayout_zeroarea"; \
+		docker run --rm $(USER_ARGS) -v $(PRECHECK_ROOT):$(PRECHECK_ROOT) \
+			-v "$$STAGE_DIR":"$$STAGE_DIR" \
+			-v $(PDK_ROOT):$(PDK_ROOT) \
+			-v $(CARAVEL_ROOT):$(CARAVEL_ROOT) \
+			-v $(HOME)/.ipm:$(HOME)/.ipm \
+			-e INPUT_DIRECTORY="$$STAGE_DIR" \
+			-e PDK_PATH=$(PDK_ROOT)/$(PDK) \
+			-e PDK_ROOT=$(PDK_ROOT) \
+			-e PDKPATH=$(PDKPATH) \
+			-e GOLDEN_CARAVEL=$(CARAVEL_ROOT) \
+			chipfoundry/mpw_precheck:latest bash -lc "test -f /.dockerenv || touch /.dockerenv; cd $(PRECHECK_ROOT) ; python3 mpw_precheck.py --input_directory \"$$STAGE_DIR\" --pdk_path $(PDK_ROOT)/$(PDK) license makefile default documentation consistency gpio_defines xor magic_drc klayout_feol klayout_beol klayout_offgrid klayout_met_min_ca_density klayout_pin_label_purposes_overlapping_drawing klayout_zeroarea"; \
+		STATUS="$$?"; \
+		mkdir -p "$$ORIG_DIR/precheck_results"; \
+		if [ -d "$$STAGE_DIR/precheck_results" ]; then cp -a "$$STAGE_DIR/precheck_results/." "$$ORIG_DIR/precheck_results/"; fi; \
+		rm -rf "$$STAGE_DIR"; \
+		exit "$$STATUS"; \
 	else \
-		$(eval INPUT_DIRECTORY := $(shell pwd)) \
+		ORIG_DIR="$$(pwd)"; \
+		STAGE_DIR="$$(mktemp -d)"; \
+		tar -C "$$ORIG_DIR" -cf - \
+			--exclude='./.git' \
+			--exclude='./.cache' \
+			--exclude='./precheck_results' \
+			--exclude='./venv' \
+			--exclude='./venv-*' \
+			--exclude='./openlane/.venv' \
+			--exclude='./openlane/*/runs' \
+			--exclude='./dependencies' \
+			--exclude='./caravel' \
+			--exclude='./mgmt_core_wrapper' \
+			. | tar -C "$$STAGE_DIR" -xf -; \
 		cd $(PRECHECK_ROOT) && \
-		docker run -it -v $(PRECHECK_ROOT):$(PRECHECK_ROOT) \
-		-v $(INPUT_DIRECTORY):$(INPUT_DIRECTORY) \
-		-v $(PDK_ROOT):$(PDK_ROOT) \
-		-v $(HOME)/.ipm:$(HOME)/.ipm \
-		-e INPUT_DIRECTORY=$(INPUT_DIRECTORY) \
-		-e PDK_PATH=$(PDK_ROOT)/$(PDK) \
-		-e PDK_ROOT=$(PDK_ROOT) \
-		-e PDKPATH=$(PDKPATH) \
-		-u $(shell id -u $(USER)):$(shell id -g $(USER)) \
-		chipfoundry/mpw_precheck:latest bash -c "cd $(PRECHECK_ROOT) ; python3 mpw_precheck.py --input_directory $(INPUT_DIRECTORY) --pdk_path $(PDK_ROOT)/$(PDK)"; \
+		docker run --rm $(USER_ARGS) -v $(PRECHECK_ROOT):$(PRECHECK_ROOT) \
+			-v "$$STAGE_DIR":"$$STAGE_DIR" \
+			-v $(PDK_ROOT):$(PDK_ROOT) \
+			-v $(CARAVEL_ROOT):$(CARAVEL_ROOT) \
+			-v $(HOME)/.ipm:$(HOME)/.ipm \
+			-e INPUT_DIRECTORY="$$STAGE_DIR" \
+			-e PDK_PATH=$(PDK_ROOT)/$(PDK) \
+			-e PDK_ROOT=$(PDK_ROOT) \
+			-e PDKPATH=$(PDKPATH) \
+			-e GOLDEN_CARAVEL=$(CARAVEL_ROOT) \
+			chipfoundry/mpw_precheck:latest bash -lc "test -f /.dockerenv || touch /.dockerenv; cd $(PRECHECK_ROOT) ; python3 mpw_precheck.py --input_directory \"$$STAGE_DIR\" --pdk_path $(PDK_ROOT)/$(PDK)"; \
+		STATUS="$$?"; \
+		mkdir -p "$$ORIG_DIR/precheck_results"; \
+		if [ -d "$$STAGE_DIR/precheck_results" ]; then cp -a "$$STAGE_DIR/precheck_results/." "$$ORIG_DIR/precheck_results/"; fi; \
+		rm -rf "$$STAGE_DIR"; \
+		exit "$$STATUS"; \
 	fi
 
 .PHONY: enable-lvs-pdk

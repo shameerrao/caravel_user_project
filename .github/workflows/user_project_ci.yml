@@ -9,68 +9,18 @@ on:
 
 env:
   PIP_CACHE_DIR: .cache/pip
+  DISABLE_DEPRECATED_MAKEFILE_PROMPT: "1"
 
 jobs:
-  init:
-    name: Init
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: .cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '.github/workflows/*.yml') }}
-          restore-keys: pip-${{ runner.os }}-
-
-      - name: Install ChipFoundry CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 python3-pip python3-venv
-          pip3 install chipfoundry-cli
-
-      - name: Initialize project config
-        run: |
-          mkdir -p .cf
-          python3 <<EOF
-          import json, os
-          from pathlib import Path
-          name = os.path.basename(os.getcwd())
-          Path('.cf/project.json').write_text(json.dumps({
-              "project": {
-                  "name": name, "type": "digital", "user": "chipfoundry",
-                  "version": "1.0.0", "user_project_wrapper_hash": "", "submission_state": "Draft"
-              }
-          }, indent=2))
-          EOF
-
   sim-rtl:
     name: sim-rtl
     timeout-minutes: 720
     runs-on: ubuntu-latest
-    needs: [init]
     strategy:
       matrix:
         pdk: ["sky130A", "sky130B"]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Initialize project config
-        run: |
-          mkdir -p .cf
-          python3 <<EOF
-          import json, os
-          from pathlib import Path
-          name = os.path.basename(os.getcwd())
-          Path('.cf/project.json').write_text(json.dumps({
-              "project": {
-                  "name": name, "type": "digital", "user": "chipfoundry",
-                  "version": "1.0.0", "user_project_wrapper_hash": "", "submission_state": "Draft"
-              }
-          }, indent=2))
-          EOF
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -85,40 +35,31 @@ jobs:
           key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '.github/workflows/*.yml') }}
           restore-keys: pip-${{ runner.os }}-
 
-      - name: Install ChipFoundry CLI
+      - name: Install Python
         run: |
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip python3-venv
-          pip3 install chipfoundry-cli
+          python3 --version
+
+      - name: Install Python dependencies (venv)
+        run: |
+          python3 -m venv venv
+          . venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Setup Dependencies
         run: |
-          cf setup --pdk ${{ matrix.pdk }} --only-caravel --only-mcw --only-pdk --only-cocotb
+          export PATH="${{ github.workspace }}/venv/bin:$PATH"
+          PDK=${{ matrix.pdk }} make setup
 
-      - name: Configure GPIO (non-interactive)
+      - name: Configure GPIO defaults
         run: |
-          python3 <<EOF
-          import json
-          from pathlib import Path
-          
-          project_json = Path('.cf/project.json')
-          with open(project_json) as f:
-              data = json.load(f)
-          
-          # Set default GPIO config (all as user input no pull)
-          gpio_config = {}
-          for gpio in range(5, 38):
-              gpio_config[str(gpio)] = "13'h0402"  # GPIO_MODE_USER_STD_INPUT_NOPULL
-          
-          data['project']['gpio_config'] = gpio_config
-          
-          with open(project_json, 'w') as f:
-              json.dump(data, f, indent=2)
-          EOF
+          python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL
 
       - name: Run RTL Verification
         run: |
-          cf verify --all
+          PDK=${{ matrix.pdk }} make verify-all-rtl
 
       - name: Upload logs on failure
         if: failure()
@@ -126,7 +67,6 @@ jobs:
         with:
           name: sim-rtl-logs-${{ matrix.pdk }}-${{ github.run_id }}
           path: |
-            .cf/
             verilog/dv/
           retention-days: 7
 
@@ -159,50 +99,31 @@ jobs:
           key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '.github/workflows/*.yml') }}
           restore-keys: pip-${{ runner.os }}-
 
-      - name: Install ChipFoundry CLI
+      - name: Install Python
         run: |
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip python3-venv python3-tk
-          pip3 install chipfoundry-cli
+          python3 --version
 
-      - name: Initialize Project
+      - name: Install Python dependencies (venv)
         run: |
-          mkdir -p .cf
-          python3 <<EOF
-          import json
-          import os
-          from pathlib import Path
-          
-          project_name = os.path.basename(os.getcwd())
-          project_json = Path('.cf/project.json')
-          
-          data = {
-              "project": {
-                  "name": project_name,
-                  "type": "digital",
-                  "user": "chipfoundry",
-                  "version": "1.0.0",
-                  "user_project_wrapper_hash": "",
-                  "submission_state": "Draft"
-              }
-          }
-          
-          with open(project_json, 'w') as f:
-              json.dump(data, f, indent=2)
-          EOF
+          python3 -m venv venv
+          . venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Setup Dependencies
         run: |
-          cf setup --pdk ${{ matrix.pdk }} --only-openlane --only-pdk
+          export PATH="${{ github.workspace }}/venv/bin:$PATH"
+          PDK=${{ matrix.pdk }} make setup
 
       - name: Harden Designs (RTL → GDS)
         run: |
           set -e
           python3 .github/scripts/get_designs.py --design ${{ github.workspace }}
-          # Use script to provide a pseudo-TTY so LibreLane/Docker does not fail with "input device is not a TTY"
           for design in $(cat harden_sequence.txt); do
             [ -z "$design" ] && continue
-            script -q -c "cf harden $design" /dev/null || exit 1
+            PDK=${{ matrix.pdk }} make "$design" || exit 1
           done
 
       - name: Upload Hardened Design
@@ -214,7 +135,6 @@ jobs:
             ${{ github.workspace }}/signoff
             ${{ github.workspace }}/verilog/gl
             ${{ github.workspace }}/lef
-            ${{ github.workspace }}/.cf/project.json
           retention-days: 1
 
       - name: Upload logs on failure
@@ -224,7 +144,6 @@ jobs:
           name: hardening-logs-${{ matrix.pdk }}-${{ github.run_id }}
           path: |
             openlane/*/runs/
-            .cf/
             harden_sequence.txt
           retention-days: 7
 
@@ -266,42 +185,27 @@ jobs:
           key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '.github/workflows/*.yml') }}
           restore-keys: pip-${{ runner.os }}-
 
-      - name: Install ChipFoundry CLI
+      - name: Install Python
         run: |
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip python3-venv
-          pip3 install chipfoundry-cli
+          python3 --version
 
-      - name: Initialize Project
+      - name: Install Python dependencies (venv)
         run: |
-          mkdir -p .cf
-          python3 <<EOF
-          import json
-          import os
-          from pathlib import Path
-          
-          project_name = os.path.basename(os.getcwd())
-          project_json = Path('.cf/project.json')
-          
-          data = {
-              "pdk": "${{ matrix.pdk }}",
-              "project": {
-                  "name": project_name,
-                  "type": "digital",
-                  "user": "chipfoundry",
-                  "version": "1.0.0",
-                  "user_project_wrapper_hash": "",
-                  "submission_state": "Draft"
-              }
-          }
-          
-          with open(project_json, 'w') as f:
-              json.dump(data, f, indent=2)
-          EOF
+          python3 -m venv venv
+          . venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Setup Dependencies
         run: |
-          cf setup --pdk ${{ matrix.pdk }} --only-pdk --only-precheck
+          export PATH="${{ github.workspace }}/venv/bin:$PATH"
+          PDK=${{ matrix.pdk }} make install
+          PDK=${{ matrix.pdk }} make check-env
+          PDK=${{ matrix.pdk }} make install_mcw
+          PDK=${{ matrix.pdk }} make pdk-with-ciel
+          PDK=${{ matrix.pdk }} make precheck
 
       - name: Download Hardened Design
         uses: actions/download-artifact@v4
@@ -309,56 +213,13 @@ jobs:
           name: design-${{ matrix.pdk }}
           path: ${{ github.workspace }}
 
-      - name: Configure GPIO (non-interactive)
+      - name: Configure GPIO defaults
         run: |
-          python3 <<EOF
-          import json
-          from pathlib import Path
-          
-          project_json = Path('.cf/project.json')
-          with open(project_json) as f:
-              data = json.load(f)
-          
-          # Set default GPIO config (all as user input no pull)
-          gpio_config = {}
-          for gpio in range(5, 38):
-              gpio_config[str(gpio)] = "13'h0402"  # GPIO_MODE_USER_STD_INPUT_NOPULL
-          
-          data['project']['gpio_config'] = gpio_config
-          
-          with open(project_json, 'w') as f:
-              json.dump(data, f, indent=2)
-          EOF
-
-      - name: Update user_defines.v from GPIO config
-        run: |
-          python3 <<'PYEOF'
-          import json
-          import re
-          from pathlib import Path
-          project_json = Path('.cf/project.json')
-          user_defines = Path('verilog/rtl/user_defines.v')
-          with open(project_json) as f:
-              data = json.load(f)
-          gpio_config = data.get('project', {}).get('gpio_config', {})
-          if not gpio_config:
-              for g in range(5, 38):
-                  gpio_config[str(g)] = "13'h0402"
-          text = user_defines.read_text()
-          for g in range(5, 38):
-              val = gpio_config.get(str(g), "13'h0402")
-              text = re.sub(
-                  r"(`define USER_CONFIG_GPIO_" + str(g) + r"_INIT\s+).*",
-                  r"\g<1>" + val,
-                  text,
-                  count=1,
-              )
-          user_defines.write_text(text)
-          PYEOF
+          python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL
 
       - name: Run Precheck
         run: |
-          cf precheck
+          PDK=${{ matrix.pdk }} make run-precheck
 
       - name: Upload logs on failure
         if: failure()
@@ -367,14 +228,13 @@ jobs:
           name: precheck-logs-${{ matrix.pdk }}-${{ github.run_id }}
           path: |
             precheck_results/
-            .cf/
           retention-days: 7
 
   collect-logs-on-failure:
     name: Collect logs on failure
     runs-on: ubuntu-latest
     if: failure() && !cancelled()
-    needs: [init, sim-rtl, hardening, precheck]
+    needs: [sim-rtl, hardening, precheck]
     steps:
       - name: Summary of failed jobs
         run: |

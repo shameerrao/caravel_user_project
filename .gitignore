@@ -1,27 +1,11 @@
-# IDE and editor
+## IDE and editor state
 /.idea/
 /.vscode/
 *.swp
 *.swo
 *~
 
-# Precheck and CI
-/precheck_results/
-design_info.yaml
-harden_sequence.txt
-.cache/
-
-# Build and run artifacts
-*/tmp
-*/*/tmp
-*.hex*
-*.lst
-*.vcd
-*.gtkw
-*.fsdb
-*.key
-
-# Python and virtual envs
+## Python / virtual environments / tooling caches
 /env
 /venv
 /venv-cocotb
@@ -34,39 +18,56 @@ __pycache__/
 .mypy_cache/
 .coverage
 htmlcov/
+.cache/
 
-# Caravel / dependencies (installed by cf setup or make)
+## Build and simulation artifacts
+*/tmp
+*/*/tmp
+*.hex*
+*.lst
+*.vcd
+*.gtkw
+*.fsdb
+*.key
+
+## Caravel / dependencies (installed by make setup)
 /caravel
 /dependencies
 /mgmt_core_wrapper
 
-# OpenLane run outputs (runs/*/logs, reports, tmp)
+## OpenLane run outputs (runs/*/logs, reports, tmp)
 openlane/*/runs/
 openlane/*/runs
 *.rpt
 *.log
 /logs
 
-# PDK (large, installed separately)
+## PDK trees (large, installed separately or via ciel)
 /pdk_root
 
-# Generated design outputs (produced by cf harden / CI; do not commit)
+## Generated design outputs (produced by hardening/CI; do not commit)
 /gds/
 /lef/
 /lib/
 /verilog/gl/
 /spef/
 /signoff/
+harden_sequence.txt
 
-# ChipFoundry local state (optional: uncomment if you keep project.json only in CI)
+## Precheck outputs and CI artifacts
+/precheck_results/
+design_info.yaml
+
+## ChipFoundry / project-local state
+# Uncomment if you keep .cf only in CI
 # /.cf/
 
-# Environment and secrets
+## Environment and secrets
 .env
 .env.*
 !.env.example
 
-# OS and misc
+## OS and misc
 .DS_Store
 Thumbs.db
 *.bak
