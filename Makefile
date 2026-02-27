@@ -204,7 +204,16 @@ openlane2-docker-container: librelane-docker-image
 librelane-%:
 	$(MAKE) -C openlane $@
 	
-# Alias to install with Ciel
+# PDK installation with Ciel (used by `make setup`)
+.PHONY: pdk-with-ciel
+pdk-with-ciel: check-deprecated
+	@if [ ! -x "$(UPRJ_ROOT)/venv/bin/ciel" ]; then \
+		echo "ERROR: $(UPRJ_ROOT)/venv/bin/ciel not found. Run ./scripts/install_requirements.sh --venv and activate it first."; \
+		exit 1; \
+	fi
+	"$(UPRJ_ROOT)/venv/bin/ciel" enable "$(OPEN_PDKS_COMMIT)"
+
+# Backwards-compatible alias
 pdk-with-volare:
 	$(MAKE) pdk-with-ciel
 
