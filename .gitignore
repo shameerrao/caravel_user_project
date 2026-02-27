@@ -9,6 +9,7 @@
 /precheck_results/
 design_info.yaml
 harden_sequence.txt
+.cache/
 
 # Build and run artifacts
 */tmp

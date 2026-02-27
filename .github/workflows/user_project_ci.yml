@@ -1,11 +1,15 @@
 # Full RTL-to-GDS CI: RTL verification first → then hardening → then precheck.
 # Jobs: rtl-verification (sky130A/sky130B) → hardening (needs: rtl-verification) → precheck (needs: hardening).
+# Precheck requires KLayout and Magic for DRC/LVS; cf setup --only-precheck provides the precheck env.
 name: CI
 
 on:
   push:
   pull_request:
   workflow_dispatch:
+
+env:
+  PIP_CACHE_DIR: .cache/pip
 
 jobs:
   rtl-verification:
@@ -22,6 +26,13 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: .cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '.github/workflows/*.yml') }}
+          restore-keys: pip-${{ runner.os }}-
 
       - name: Install ChipFoundry CLI
         run: |
@@ -91,6 +102,7 @@ jobs:
     strategy:
       matrix:
         pdk: ["sky130A", "sky130B"]
+      fail-fast: false
     env:
       # Run LibreLane/Docker in non-interactive mode (no TTY) so CI does not fail with "input device is not a TTY"
       CI: "true"
@@ -103,6 +115,13 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: .cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '.github/workflows/*.yml') }}
+          restore-keys: pip-${{ runner.os }}-
 
       - name: Install ChipFoundry CLI
         run: |
@@ -168,6 +187,7 @@ jobs:
     strategy:
       matrix:
         pdk: ["sky130A", "sky130B"]
+      fail-fast: false
     needs: [hardening]
     steps:
       - uses: actions/checkout@v4
@@ -178,10 +198,30 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Install EDA tools (KLayout, Magic)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            klayout \
+            magic \
+            netgen \
+            libx11-dev \
+            tcl-dev \
+            tk-dev
+          klayout -v || true
+          magic -v || true
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: .cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '.github/workflows/*.yml') }}
+          restore-keys: pip-${{ runner.os }}-
+
       - name: Install ChipFoundry CLI
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 python3-pip
+          sudo apt-get install -y python3 python3-pip python3-venv
           pip3 install chipfoundry-cli
 
       - name: Initialize Project
@@ -241,6 +281,32 @@ jobs:
           with open(project_json, 'w') as f:
               json.dump(data, f, indent=2)
           EOF
+
+      - name: Update user_defines.v from GPIO config
+        run: |
+          python3 <<'PYEOF'
+          import json
+          import re
+          from pathlib import Path
+          project_json = Path('.cf/project.json')
+          user_defines = Path('verilog/rtl/user_defines.v')
+          with open(project_json) as f:
+              data = json.load(f)
+          gpio_config = data.get('project', {}).get('gpio_config', {})
+          if not gpio_config:
+              for g in range(5, 38):
+                  gpio_config[str(g)] = "13'h0402"
+          text = user_defines.read_text()
+          for g in range(5, 38):
+              val = gpio_config.get(str(g), "13'h0402")
+              text = re.sub(
+                  r"(`define USER_CONFIG_GPIO_" + str(g) + r"_INIT\s+).*",
+                  r"\g<1>" + val,
+                  text,
+                  count=1,
+              )
+          user_defines.write_text(text)
+          PYEOF
 
       - name: Run Precheck
         run: |
