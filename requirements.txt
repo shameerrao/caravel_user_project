@@ -1,0 +1,3 @@
+# Python dependencies for Caravel user project (RTL-to-GDS, verification, precheck).
+# Install with: pip install -r requirements.txt
+chipfoundry-cli>=1.4.0

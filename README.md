@@ -13,6 +13,7 @@
 ## Table of Contents
 - [Overview](#overview)
 - [This Repository](#this-repository)
+- [Student tapeout flow: every command](#student-tapeout-flow-every-command)
 - [GitHub Actions (RTL-to-GDS Pipeline)](#github-actions-rtl-to-gds-pipeline)
 - [GitHub self-hosted runner](#github-self-hosted-runner)
 - [Documentation & Resources](#documentation--resources)
@@ -45,6 +46,144 @@ pip install chipfoundry-cli
 source env.sh
 cf init
 cf setup
+```
+
+---
+
+## Tapeout flow: Every Command
+
+Use this section as a single reference for the full tapeout flow. Run from the **project root** unless noted. In new terminals, run **source env.sh** again (and activate your venv if you use one).
+
+### 1. Get the repo and install dependencies
+
+```bash
+git clone https://github.com/shameerrao/caravel_user_project.git
+cd caravel_user_project
+```
+
+**Install tools (pick one):**
+
+```bash
+# Linux: system + Python deps (recommended first time)
+./scripts/install_requirements.sh
+
+# Or use a virtualenv (recommended)
+./scripts/install_requirements.sh --venv
+source venv/bin/activate
+
+# Or Python only (any OS, if Docker + Python already installed)
+pip install -r requirements.txt
+```
+
+Ensure **Docker** is installed and running ([install](https://docs.docker.com/get-docker/) if needed).
+
+---
+
+### 2. Source environment and one-time project setup
+
+```bash
+source env.sh
+cf init
+cf setup
+```
+
+- `source env.sh` — Sets `PDK_ROOT`, `CARAVEL_ROOT`, `OPENLANE_ROOT`, etc. Do this in every new shell.
+- `cf init` — Creates `.cf/project.json`. Required once per clone.
+- `cf setup` — Downloads PDK, OpenLane, Caravel lite, cocotb. Run once (or when switching PDK).
+
+---
+
+### 3. Configure GPIO (required before sim and precheck)
+
+```bash
+source env.sh
+cf gpio-config
+```
+
+Interactive: set power-on state for GPIO 5–37. Updates `verilog/rtl/user_defines.v` and `.cf/project.json`. Required before `cf verify` and `cf precheck`.
+
+---
+
+### 4. Edit RTL and openlane config (your design work)
+
+- RTL: edit `verilog/rtl/` (e.g. `user_proj_example.v`, `user_project_wrapper.v`).
+- Macro config: add or edit `openlane/<macro_name>/config.json` (or `config.tcl`).
+- Wire your macro into `verilog/rtl/user_project_wrapper.v` and point `openlane/user_project_wrapper/config.json` at its LEF/GDS/verilog.
+
+No single command; edit files as needed.
+
+---
+
+### 5. Run simulation (make sim)
+
+```bash
+source env.sh
+cf verify <test_name>              # One test, RTL
+cf verify <test_name> --sim gl     # One test, gate-level
+cf verify --all                    # All tests (RTL)
+```
+
+Examples: `cf verify hello_world`, `cf verify gpio_test`, `cf verify --all`. Run after GPIO config and after RTL changes.
+
+---
+
+### 6. Harden the design (RTL → GDS)
+
+**Option A — one macro at a time:**
+
+```bash
+source env.sh
+cf harden --list                   # List macros
+cf harden user_proj_example        # Harden a macro
+cf harden user_project_wrapper     # Then the top wrapper
+```
+
+**Option B — full flow (all macros in dependency order):**
+
+```bash
+source env.sh
+python3 .github/scripts/get_designs.py --design $(pwd)
+for design in $(cat harden_sequence.txt); do [ -z "$design" ] && continue; cf harden $design || exit 1; done
+```
+
+Outputs: `gds/`, `lef/`, `verilog/gl/`, `signoff/`.
+
+---
+
+### 7. Run precheck (shuttle readiness)
+
+```bash
+source env.sh
+cf precheck
+```
+
+Run after hardening and after GPIO config. Optional: `cf precheck --disable-lvs` or `cf precheck --checks license --checks makefile`.
+
+---
+
+### 8. Optional: static timing analysis (STA)
+
+```bash
+source env.sh
+make setup-timing-scripts   # Once if needed
+make extract-parasitics
+make create-spef-mapping
+make caravel-sta
+```
+
+---
+
+### Quick copy-paste sequence (after first-time setup)
+
+Once clone, `install_requirements`, `cf init`, and `cf setup` are done:
+
+```bash
+source env.sh
+cf gpio-config              # If not done yet
+cf verify --all             # Sim
+python3 .github/scripts/get_designs.py --design $(pwd)
+for design in $(cat harden_sequence.txt); do [ -z "$design" ] && continue; cf harden $design || exit 1; done
+cf precheck
 ```
 
 ---
@@ -134,6 +273,25 @@ Ensure your environment meets the following requirements:
 1. **Docker** [Linux](https://docs.docker.com/desktop/setup/install/linux/ubuntu/) | [Windows](https://docs.docker.com/desktop/setup/install/windows-install/) | [Mac](https://docs.docker.com/desktop/setup/install/mac-install/)
 2. **Python 3.8+** with `pip`.
 3. **Git**: For repository management.
+
+**One-time setup (Linux):** From the repo root, run the requirements install script to install system and Python dependencies:
+
+```bash
+./scripts/install_requirements.sh
+```
+
+Use a virtualenv (recommended):
+
+```bash
+./scripts/install_requirements.sh --venv
+# then before each session: source venv/bin/activate
+```
+
+**Python only (any OS):** If Python and Docker are already installed:
+
+```bash
+pip install -r requirements.txt
+```
 
 ---
 
