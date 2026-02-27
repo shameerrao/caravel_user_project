@@ -46,13 +46,6 @@ jobs:
           }, indent=2))
           EOF
 
-      - name: Upload init artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: init-cf
-          path: .cf/
-          retention-days: 1
-
   sim-rtl:
     name: sim-rtl
     timeout-minutes: 720
@@ -64,11 +57,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download init artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: init-cf
-          path: .cf/
+      - name: Initialize project config
+        run: |
+          mkdir -p .cf
+          python3 <<EOF
+          import json, os
+          from pathlib import Path
+          name = os.path.basename(os.getcwd())
+          Path('.cf/project.json').write_text(json.dumps({
+              "project": {
+                  "name": name, "type": "digital", "user": "chipfoundry",
+                  "version": "1.0.0", "user_project_wrapper_hash": "", "submission_state": "Draft"
+              }
+          }, indent=2))
+          EOF
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
