@@ -10,6 +10,8 @@
 
 </div>
 
+Students clone this repo and build from it. **No paths in this README point to instructor or server-specific locations.** Where you must set your own path or URL, it is called out in [Where to update paths](#where-to-update-paths) and in the relevant sections below.
+
 ## Table of Contents
 - [Overview](#overview)
 - [This Repository](#this-repository)
@@ -24,6 +26,8 @@
 - [Development Flow](#development-flow)
 - [GPIO Configuration](#gpio-configuration)
 - [Local Precheck](#local-precheck)
+- [Layout Diagram](#layout-diagram)
+- [Where to update paths](#where-to-update-paths)
 - [Checklist for Shuttle Submission](#checklist-for-shuttle-submission)
 
 ## Overview
@@ -38,7 +42,7 @@ This repository contains a user project designed for integration into the **Cara
 ## This Repository
 This project is based on [chipfoundry/caravel_user_project](https://github.com/chipfoundry/caravel_user_project) and uses the **SkyWater 130 nm** open-source PDK with the Caravel harness. The RTL-to-GDS flow is driven by **OpenLane** (via ChipFoundry CLI) and runs in CI and locally with industry-standard tools: Docker, Make, Python 3, and optional self-hosted runners.
 
-**Clone and push to your fork:**
+**Clone this repo and set up:**
 ```bash
 git clone https://github.com/shameerrao/caravel_user_project.git
 cd caravel_user_project
@@ -202,7 +206,7 @@ A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/us
 4. **precheck** — Depends on hardening; downloads design artifact, configures GPIO, updates `user_defines.v`, runs `cf precheck`. On failure, uploads precheck_results and `.cf`.
 5. **Collect logs on failure** — Runs only when any previous job fails; uploads a failure-summary artifact and relies on per-job “Upload logs on failure” artifacts for debugging.
 
-To see runs and artifacts: [Actions tab](https://github.com/shameerrao/caravel_user_project/actions).
+To see runs and artifacts: **Actions** tab on GitHub: [shameerrao/caravel_user_project/actions](https://github.com/shameerrao/caravel_user_project/actions). If you use your own fork, use your fork’s Actions URL instead.
 
 ---
 
@@ -233,15 +237,15 @@ mkdir -p ~/actions-runner && cd ~/actions-runner
 curl -o actions-runner-linux-x64-2.311.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.311.0/actions-runner-linux-x64-2.311.0.tar.gz
 tar xzf actions-runner-linux-x64-2.311.0.tar.gz
 
-# Configure (replace <token> and <repo> with the values from GitHub)
-./config.sh --url https://github.com/OWNER/caravel_user_project --token <token>
+# Configure (replace <token> with the value from GitHub; use your fork’s URL if you use a fork)
+./config.sh --url https://github.com/shameerrao/caravel_user_project --token <token>
 
 # Optional: install as a service so it starts on boot
 ./svc.sh install
 ./svc.sh start
 ```
 
-Use the exact **URL** and **token** from the GitHub “Add new self-hosted runner” page; the script will prompt for labels.
+Use the exact **URL** and **token** from the GitHub “Add new self-hosted runner” page; the script will prompt for labels. If you added the runner to your own fork, use your fork’s repo URL in the `--url` above.
 
 ### 4. Labels
 When configuring the runner, use at least:
@@ -513,6 +517,75 @@ You can also run specific checks or disable LVS:
 cf precheck --disable-lvs                    # Skip LVS check
 cf precheck --checks license --checks makefile  # Run specific checks only
 ```
+
+---
+
+## Layout Diagram
+
+You can generate a layout diagram (similar to the Vanilla Caravel + user_project_wrapper → Caravel style) using KLayout and the provided scripts:
+
+1. **KLayout** must be installed and on your PATH ([klayout.de](https://www.klayout.de)).
+2. **Pillow**: `pip install Pillow`
+
+From the project root you can generate a layout diagram PNG locally (requires KLayout installed on your account) or view the GDS directly.
+
+**Option 1 — View layout in KLayout (recommended with PuTTY + XLaunch):**
+
+1. **Start XLaunch on Windows**
+   - Run **XLaunch**.
+   - Choose **"Multiple windows"** (or "One large window").
+   - Leave display as the default (e.g. `:0`).
+   - On the "Extra settings" page, enable **"Disable access control"** so SSH‑forwarded X11 connections from PuTTY are allowed.
+   - Finish and leave XLaunch running.
+
+2. **Configure PuTTY for X11 forwarding**
+   - In PuTTY, load your SSH session (if it's your first time SSH into the server on PuTTY, save it, then load).
+   - Go to **Connection → SSH → X11**.
+   - Check **"Enable X11 forwarding"**.
+   - (Optional) Set **X display location** to `localhost:0`.
+   - Go back to **Session**, save the session, and **Open** it.
+
+3. **Launch KLayout from the Linux server**
+
+**Update this path:** `cd` to **your** project root (the directory where you cloned the repo). Example:
+
+```bash
+cd /path/to/caravel_user_project    # ← REPLACE with your actual path (e.g. your home or course directory)
+# Or from anywhere inside the repo:  cd $(git rev-parse --show-toplevel)
+export PROJECT_ROOT="$PWD"
+source env.sh
+# If KLayout is in a custom location on your account, set LD_LIBRARY_PATH as needed
+export QT_QPA_PLATFORM=xcb          # for X11 forwarding (PuTTY + XLaunch on Windows)
+klayout gds/user_project_wrapper.gds &
+```
+
+If X11 forwarding is working, a KLayout window will appear on your Windows desktop. Ensure `gds/user_project_wrapper.gds` exists (run hardening first if needed).
+
+**Option 2 — Magic layout viewer (no KLayout required):**
+
+```bash
+source env.sh
+make view-layout-magic
+```
+
+Or run Magic directly: `magic gds/user_project_wrapper.gds` (with display). If the PDK is set (`PDKPATH` or `PDK_ROOT`), Magic can use the Skywater tech for correct layers.
+
+---
+
+## Where to update paths
+
+These are the only places you need to set your own paths or URLs. Nothing in this repo points to instructor or server-specific locations.
+
+| Where | What to set |
+|-------|-------------|
+| **Layout Diagram (KLayout)** | `cd /path/to/caravel_user_project` — use **your** project root (where you ran `git clone`). From inside the repo you can use `cd $(git rev-parse --show-toplevel)` instead. |
+| **Layout Diagram (KLayout)** | If KLayout is installed in a custom location on your machine, set `LD_LIBRARY_PATH` as required by your install. |
+| **Self-hosted runner** | If you add a runner to **your fork** (not this template repo), use your fork’s URL in `config.sh --url https://github.com/YOUR_USERNAME/caravel_user_project`. |
+| **CI badge in README** | If you maintain your own fork and want the badge to show your fork’s CI status, edit the badge URL at the top of this README to your fork’s Actions workflow URL. |
+| **Scripts** | `env.sh` and `scripts/install_requirements.sh` use the directory they live in as the project root; no path edits needed unless you move the repo. |
+
+All other commands in this README use paths relative to the project root (e.g. `gds/`, `verilog/rtl/`) and work from wherever you cloned the repo.
+
 ---
 
 ## Checklist for Shuttle Submission
