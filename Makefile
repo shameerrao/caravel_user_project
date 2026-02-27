@@ -136,7 +136,8 @@ setup: check-deprecated check_dependencies install check-env install_mcw openlan
 
 # Openlane
 
-dv_patterns=$(shell cd verilog/dv && find * -maxdepth 0 -type d)
+cocotb_exclude_pattern=! -name 'cocotb'
+dv_patterns=$(shell cd verilog/dv && find * -maxdepth 0 -type d $(cocotb_exclude_pattern))
 cocotb-dv_patterns=$(shell cd verilog/dv/cocotb && find . -name "*.c"  | sed -e 's|^.*/||' -e 's/.c//')
 dv-targets-rtl=$(dv_patterns:%=verify-%-rtl)
 cocotb-dv-targets-rtl=$(cocotb-dv_patterns:%=cocotb-verify-%-rtl)
