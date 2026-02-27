@@ -189,16 +189,18 @@ cf precheck
 ---
 
 ## GitHub Actions (RTL-to-GDS Pipeline)
-A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/user_project_ci.yml) (`.github/workflows/user_project_ci.yml`).
+A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/user_project_ci.yml) (`.github/workflows/user_project_ci.yml`). The structure mirrors a typical Caravel tapeout CI: **Init** → **sim-rtl** (RTL verification) → **hardening** (RTL→GDS) → **precheck** → **Collect logs on failure**.
 
 | Runner | Trigger | What it does |
 |--------|---------|--------------|
-| `ubuntu-latest` (default) or [self-hosted](#github-self-hosted-runner) | Every push/PR, or **Run workflow** in Actions | **rtl-verification** first (`cf verify --all`); then **hardening** (RTL→GDS for sky130A/sky130B); then **precheck** (downloads hardening artifacts, runs `cf precheck`). |
+| `ubuntu-latest` (default) or [self-hosted](#github-self-hosted-runner) | Every push/PR, or **Run workflow** in Actions | **Init** (checkout, install CLI, create `.cf`); then **sim-rtl** (RTL sim for sky130A/sky130B); then **hardening** (RTL→GDS); then **precheck**; on any failure, **Collect logs on failure** runs and uploads a summary plus per-job logs. |
 
 **Job flow (linked):**
-1. **rtl-verification** — Runs first; `cf setup` (Caravel, cocotb, PDK) → GPIO config → `cf verify --all`. Must pass before hardening runs.
-2. **hardening** — Runs after rtl-verification; `cf setup` (PDK + OpenLane) → `get_designs.py` → `cf harden` for each macro → upload artifact (`gds/`, `signoff/`, `verilog/gl/`, `lef/`, `.cf/project.json`).
-3. **precheck** — Depends on **hardening**; downloads the design artifact, configures GPIO, runs `cf precheck`.
+1. **Init** — Checkout, install ChipFoundry CLI, create `.cf/project.json`. Uploads init artifact for downstream jobs.
+2. **sim-rtl** — Depends on Init; `cf setup` (Caravel, cocotb, PDK) → GPIO config → `cf verify --all`. Must pass before hardening. On failure, uploads sim-rtl logs.
+3. **hardening** — Depends on sim-rtl; `cf setup` (PDK + OpenLane) → `get_designs.py` → `cf harden` for each macro → upload design artifact. On failure, uploads OpenLane runs and `.cf`.
+4. **precheck** — Depends on hardening; downloads design artifact, configures GPIO, updates `user_defines.v`, runs `cf precheck`. On failure, uploads precheck_results and `.cf`.
+5. **Collect logs on failure** — Runs only when any previous job fails; uploads a failure-summary artifact and relies on per-job “Upload logs on failure” artifacts for debugging.
 
 To see runs and artifacts: [Actions tab](https://github.com/shameerrao/caravel_user_project/actions).
 

@@ -1,6 +1,5 @@
-# Full RTL-to-GDS CI: RTL verification first → then hardening → then precheck.
-# Jobs: rtl-verification (sky130A/sky130B) → hardening (needs: rtl-verification) → precheck (needs: hardening).
-# Precheck requires KLayout and Magic for DRC/LVS; cf setup --only-precheck provides the precheck env.
+# Caravel tapeout CI: Init → sim-rtl (verification) → hardening (RTL→GDS) → precheck → collect logs on failure.
+# Structure similar to standard Caravel CI: short init, then verification, netlist/hardening, checks, log collection.
 name: CI
 
 on:
@@ -12,14 +11,64 @@ env:
   PIP_CACHE_DIR: .cache/pip
 
 jobs:
-  rtl-verification:
+  init:
+    name: Init
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: .cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '.github/workflows/*.yml') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Install ChipFoundry CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip python3-venv
+          pip3 install chipfoundry-cli
+
+      - name: Initialize project config
+        run: |
+          mkdir -p .cf
+          python3 <<EOF
+          import json, os
+          from pathlib import Path
+          name = os.path.basename(os.getcwd())
+          Path('.cf/project.json').write_text(json.dumps({
+              "project": {
+                  "name": name, "type": "digital", "user": "chipfoundry",
+                  "version": "1.0.0", "user_project_wrapper_hash": "", "submission_state": "Draft"
+              }
+          }, indent=2))
+          EOF
+
+      - name: Upload init artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: init-cf
+          path: .cf/
+          retention-days: 1
+
+  sim-rtl:
+    name: sim-rtl
     timeout-minutes: 720
     runs-on: ubuntu-latest
+    needs: [init]
     strategy:
       matrix:
         pdk: ["sky130A", "sky130B"]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download init artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: init-cf
+          path: .cf/
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -39,32 +88,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip python3-venv
           pip3 install chipfoundry-cli
-
-      - name: Initialize Project
-        run: |
-          mkdir -p .cf
-          python3 <<EOF
-          import json
-          import os
-          from pathlib import Path
-          
-          project_name = os.path.basename(os.getcwd())
-          project_json = Path('.cf/project.json')
-          
-          data = {
-              "project": {
-                  "name": project_name,
-                  "type": "digital",
-                  "user": "chipfoundry",
-                  "version": "1.0.0",
-                  "user_project_wrapper_hash": "",
-                  "submission_state": "Draft"
-              }
-          }
-          
-          with open(project_json, 'w') as f:
-              json.dump(data, f, indent=2)
-          EOF
 
       - name: Setup Dependencies
         run: |
@@ -95,10 +118,21 @@ jobs:
         run: |
           cf verify --all
 
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-rtl-logs-${{ matrix.pdk }}-${{ github.run_id }}
+          path: |
+            .cf/
+            verilog/dv/
+          retention-days: 7
+
   hardening:
+    name: hardening
     timeout-minutes: 720
     runs-on: ubuntu-latest
-    needs: [rtl-verification]
+    needs: [sim-rtl]
     strategy:
       matrix:
         pdk: ["sky130A", "sky130B"]
@@ -181,7 +215,19 @@ jobs:
             ${{ github.workspace }}/.cf/project.json
           retention-days: 1
 
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardening-logs-${{ matrix.pdk }}-${{ github.run_id }}
+          path: |
+            openlane/*/runs/
+            .cf/
+            harden_sequence.txt
+          retention-days: 7
+
   precheck:
+    name: precheck
     timeout-minutes: 720
     runs-on: ubuntu-latest
     strategy:
@@ -311,3 +357,33 @@ jobs:
       - name: Run Precheck
         run: |
           cf precheck
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: precheck-logs-${{ matrix.pdk }}-${{ github.run_id }}
+          path: |
+            precheck_results/
+            .cf/
+          retention-days: 7
+
+  collect-logs-on-failure:
+    name: Collect logs on failure
+    runs-on: ubuntu-latest
+    if: failure() && !cancelled()
+    needs: [init, sim-rtl, hardening, precheck]
+    steps:
+      - name: Summary of failed jobs
+        run: |
+          echo "One or more jobs failed. Check the Actions run log and job artifacts for details." > failure-summary.txt
+          echo "Workflow: ${{ github.workflow }}" >> failure-summary.txt
+          echo "Run ID: ${{ github.run_id }}" >> failure-summary.txt
+          echo "Branch: ${{ github.ref_name }}" >> failure-summary.txt
+
+      - name: Upload failure summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-summary-${{ github.run_id }}
+          path: failure-summary.txt
+          retention-days: 7
