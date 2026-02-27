@@ -148,7 +148,9 @@ dv-targets-gl-sdf=$(dv_patterns:%=verify-%-gl-sdf)
 TARGET_PATH=$(shell pwd)
 # Force a toolchain march that includes the Zicsr extension so DV firmware
 # (crt0_vex.S, irq_vex.h) assembles cleanly with newer RISC-V GCC versions.
-verify_command="cd ${TARGET_PATH}/verilog/dv/$* && export SIM=${SIM} CPUFLAGS='-march=rv32i_zicsr -mabi=ilp32 -D__vexriscv__' && make"
+# Pass CPUFLAGS and SIM on the make command line so they override any
+# assignment inside included makefiles.
+verify_command="cd ${TARGET_PATH}/verilog/dv/$* && make SIM=${SIM} CPUFLAGS='-march=rv32i_zicsr -mabi=ilp32 -D__vexriscv__'"
 dv_base_dependencies=simenv
 docker_run_verify=\
 	docker run \
