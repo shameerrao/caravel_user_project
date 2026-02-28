@@ -115,7 +115,7 @@ jobs:
       - name: Setup Dependencies
         run: |
           export PATH="${{ github.workspace }}/venv/bin:$PATH"
-          PDK=${{ matrix.pdk }} make setup
+          for i in 1 2 3; do if PDK=${{ matrix.pdk }} make setup; then break; fi; [ "$i" -eq 3 ] && exit 1; echo "Setup attempt $i failed (e.g. PDK download), retrying in 30s..."; sleep 30; done
 
       - name: Harden Designs (RTL → GDS)
         run: |
@@ -143,8 +143,9 @@ jobs:
         with:
           name: hardening-logs-${{ matrix.pdk }}-${{ github.run_id }}
           path: |
-            openlane/*/runs/
+            openlane/
             harden_sequence.txt
+          if-no-files-found: ignore
           retention-days: 7
 
   precheck:
@@ -204,7 +205,7 @@ jobs:
           PDK=${{ matrix.pdk }} make install
           PDK=${{ matrix.pdk }} make check-env
           PDK=${{ matrix.pdk }} make install_mcw
-          PDK=${{ matrix.pdk }} make pdk-with-ciel
+          for i in 1 2 3; do if PDK=${{ matrix.pdk }} make pdk-with-ciel; then break; fi; [ "$i" -eq 3 ] && exit 1; echo "PDK download attempt $i failed, retrying in 30s..."; sleep 30; done
           PDK=${{ matrix.pdk }} make precheck
 
       - name: Download Hardened Design
