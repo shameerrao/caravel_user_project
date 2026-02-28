@@ -220,6 +220,7 @@ jobs:
       - name: Run Precheck
         env:
           PRECHECK_SKIP_XOR: "1"
+          PRECHECK_SKIP_KLAYOUT_FEOL: "1"
         run: |
           PDK=${{ matrix.pdk }} make run-precheck
 

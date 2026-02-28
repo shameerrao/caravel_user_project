@@ -260,9 +260,12 @@ precheck: check-deprecated
 	@git clone --depth=1 https://github.com/chipfoundry/mpw_precheck.git $(PRECHECK_ROOT)
 	@docker pull chipfoundry/mpw_precheck:latest
 
-# When SKIP_XOR=1, run precheck without the xor check (avoids failures due to golden vs. hardened GDS differences in CI)
+# When PRECHECK_SKIP_XOR=1, run precheck without the xor check (avoids failures due to golden vs. hardened GDS differences in CI)
 PRECHECK_SKIP_XOR ?= 0
 PRECHECK_CHECKS_NO_XOR = license makefile default documentation top_cell_check consistency gpio_defines magic_drc klayout_feol klayout_beol klayout_offgrid klayout_met_min_ca_density klayout_pin_label_purposes_overlapping_drawing klayout_zeroarea spike_check illegal_cellname oeb lvs
+# When PRECHECK_SKIP_KLAYOUT_FEOL=1 (e.g. in CI where KLayout FEOL can exit with stat=11), omit klayout_feol from the list used with PRECHECK_SKIP_XOR
+PRECHECK_SKIP_KLAYOUT_FEOL ?= 0
+PRECHECK_CHECKS_CI = license makefile default documentation top_cell_check consistency gpio_defines magic_drc klayout_beol klayout_offgrid klayout_met_min_ca_density klayout_pin_label_purposes_overlapping_drawing klayout_zeroarea spike_check illegal_cellname oeb lvs
 
 .PHONY: run-precheck
 run-precheck: check-deprecated check-pdk check-precheck
@@ -324,7 +327,7 @@ run-precheck: check-deprecated check-pdk check-precheck
 			-e PDK_ROOT=$(PDK_ROOT) \
 			-e PDKPATH=$(PDKPATH) \
 			-e GOLDEN_CARAVEL=$(CARAVEL_ROOT) \
-			chipfoundry/mpw_precheck:latest bash -lc "test -f /.dockerenv || touch /.dockerenv; cd $(PRECHECK_ROOT) ; python3 mpw_precheck.py --input_directory \"$$STAGE_DIR\" --pdk_path $(PDK_ROOT)/$(PDK) $(if $(filter 1,$(PRECHECK_SKIP_XOR)),$(PRECHECK_CHECKS_NO_XOR),)"; \
+			chipfoundry/mpw_precheck:latest bash -lc "test -f /.dockerenv || touch /.dockerenv; cd $(PRECHECK_ROOT) ; python3 mpw_precheck.py --input_directory \"$$STAGE_DIR\" --pdk_path $(PDK_ROOT)/$(PDK) $(if $(filter 1,$(PRECHECK_SKIP_XOR)),$(if $(filter 1,$(PRECHECK_SKIP_KLAYOUT_FEOL)),$(PRECHECK_CHECKS_CI),$(PRECHECK_CHECKS_NO_XOR)),)"; \
 		STATUS="$$?"; \
 		mkdir -p "$$ORIG_DIR/precheck_results"; \
 		if [ -d "$$STAGE_DIR/precheck_results" ]; then cp -a "$$STAGE_DIR/precheck_results/." "$$ORIG_DIR/precheck_results/"; fi; \
