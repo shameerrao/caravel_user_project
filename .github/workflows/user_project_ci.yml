@@ -218,9 +218,6 @@ jobs:
           python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL
 
       - name: Run Precheck
-        env:
-          PRECHECK_SKIP_XOR: "1"
-          PRECHECK_SKIP_KLAYOUT_FEOL: "1"
         run: |
           PDK=${{ matrix.pdk }} make run-precheck
 

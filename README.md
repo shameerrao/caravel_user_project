@@ -183,7 +183,7 @@ A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/us
 **Job flow:**
 1. **sim-rtl** — `make setup` (Caravel, cocotb, PDK) → GPIO defaults → `make verify-all-rtl`. Must pass before hardening. On failure, uploads sim logs.
 2. **hardening** — `make setup` (PDK + LibreLane/OpenLane) → `get_designs.py` → `make <design>` for each macro → upload design artifact. On failure, uploads OpenLane runs.
-3. **precheck** — Downloads design artifact, configures GPIO, runs `make run-precheck` with `PRECHECK_SKIP_XOR=1` and `PRECHECK_SKIP_KLAYOUT_FEOL=1` (XOR and Klayout FEOL skipped in CI to avoid golden-vs-hardened differences and KLayout exit 11 in the container). On failure, uploads precheck_results.
+3. **precheck** — Downloads design artifact, configures GPIO, runs full `make run-precheck` (all checks including XOR and Klayout FEOL). On failure, uploads precheck_results.
 4. **Collect logs on failure** — Runs only when any previous job fails; uploads a failure-summary artifact and relies on per-job “Upload logs on failure” artifacts for debugging.
 
 To see runs and artifacts: **Actions** tab on GitHub: [shameerrao/caravel_user_project/actions](https://github.com/shameerrao/caravel_user_project/actions). If you use your own fork, use your fork’s Actions URL instead.
@@ -418,7 +418,7 @@ You can also run specific checks or disable LVS:
 DISABLE_LVS=1 make run-precheck
 ```
 
-If the **XOR** check fails (e.g. “non-conforming geometries” vs. the golden reference), run `PRECHECK_SKIP_XOR=1 make run-precheck`. If **Klayout FEOL** fails with `stat=11` (KLayout crash in the container), run with `PRECHECK_SKIP_KLAYOUT_FEOL=1` as well (e.g. `PRECHECK_SKIP_XOR=1 PRECHECK_SKIP_KLAYOUT_FEOL=1 make run-precheck`). For submission, fix any real DRC/geometry issues or confirm with your shuttle provider.
+If **XOR** or **Klayout FEOL** fail only in CI or in a specific environment (e.g. XOR due to golden vs. hardened differences, or FEOL with `stat=11` from a KLayout crash), you can run with skips for that environment: `PRECHECK_SKIP_XOR=1 make run-precheck` or `PRECHECK_SKIP_KLAYOUT_FEOL=1` (or both). For tapeout submission, run full precheck locally and fix any real DRC/geometry issues.
 
 ---
 
