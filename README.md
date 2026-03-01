@@ -404,10 +404,14 @@ Before submitting your design for fabrication, run the local precheck to ensure 
 > [!IMPORTANT]
 > GPIO configuration is required before running precheck.
 
+So that the **XOR check** passes (it compares your GDS to `caravel/gds/user_project_wrapper_empty.gds`), use your built wrapper as the golden—same as CI—**before** running precheck:
+
 ```bash
 source env.sh
 python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL
 export DISABLE_DEPRECATED_MAKEFILE_PROMPT=1
+# Use our built wrapper as XOR golden so precheck compares layout to itself
+cp gds/user_project_wrapper.gds caravel/gds/user_project_wrapper_empty.gds
 make run-precheck
 ```
 

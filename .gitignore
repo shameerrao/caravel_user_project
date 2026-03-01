@@ -24,11 +24,16 @@ htmlcov/
 */tmp
 */*/tmp
 *.hex*
+*.hexe
 *.lst
 *.vcd
+*.vcd.hier
+*.vvp
+*.elf
 *.gtkw
 *.fsdb
 *.key
+/mag/
 
 ## Caravel / dependencies (installed by make setup)
 /caravel
