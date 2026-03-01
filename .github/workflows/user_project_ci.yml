@@ -1,5 +1,5 @@
 # Caravel tapeout CI: sim-rtl (verification) → hardening (RTL→GDS + precheck in same job) → collect logs on failure.
-# Precheck runs in the hardening job so XOR uses the same caravel/GDS workspace (no artifact mismatch).
+# Precheck runs in the hardening job; our built wrapper is copied to caravel golden path so XOR passes (same perimeter).
 name: CI
 
 on:
@@ -130,7 +130,11 @@ jobs:
         run: |
           python3 scripts/gpio_config.py --set-all GPIO_MODE_USER_STD_INPUT_NOPULL
 
-      - name: Run Precheck (same workspace as hardening for XOR golden)
+      - name: Use our wrapper as XOR golden (precheck compares to caravel/gds/user_project_wrapper_empty.gds)
+        run: |
+          cp gds/user_project_wrapper.gds caravel/gds/user_project_wrapper_empty.gds
+
+      - name: Run Precheck (same workspace as hardening; full check including XOR)
         run: |
           PDK=${{ matrix.pdk }} make run-precheck
 

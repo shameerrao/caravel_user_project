@@ -279,6 +279,7 @@ run-precheck: check-deprecated check-pdk check-precheck
 			--exclude='./venv' \
 			--exclude='./venv-*' \
 			--exclude='./openlane/.venv' \
+			--exclude='./openlane/.cache' \
 			--exclude='./openlane/*/runs' \
 			--exclude='./dependencies' \
 			--exclude='./caravel' \
@@ -311,6 +312,7 @@ run-precheck: check-deprecated check-pdk check-precheck
 			--exclude='./venv' \
 			--exclude='./venv-*' \
 			--exclude='./openlane/.venv' \
+			--exclude='./openlane/.cache' \
 			--exclude='./openlane/*/runs' \
 			--exclude='./dependencies' \
 			--exclude='./caravel' \

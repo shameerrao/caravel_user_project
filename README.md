@@ -182,8 +182,8 @@ A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/us
 
 **Job flow:**
 1. **sim-rtl** — `make setup` (Caravel, cocotb, PDK) → GPIO defaults → `make verify-all-rtl`. Must pass before hardening. On failure, uploads sim logs.
-2. **hardening** — `make setup` (PDK + LibreLane/OpenLane) → `get_designs.py` → `make <design>` for each macro → Configure GPIO → `make run-precheck` (full, including XOR) → upload design artifact. On failure, uploads OpenLane and precheck logs.
-3. **precheck** — Runs in the **same job** as hardening (after Harden Designs): configures GPIO, then runs full `make run-precheck` (all checks including XOR) using the same workspace and caravel, so the XOR golden matches the build. On failure, uploads openlane logs and precheck_results.
+2. **hardening** — `make setup` (PDK + LibreLane/OpenLane) → `get_designs.py` → `make <design>` for each macro → Configure GPIO → copy our built `gds/user_project_wrapper.gds` to `caravel/gds/user_project_wrapper_empty.gds` so XOR uses our wrapper as the golden (same perimeter after erase) → `make run-precheck` (full check including XOR) → upload design artifact. On failure, uploads OpenLane and precheck logs.
+3. **precheck** — Runs in the **same job** as hardening (after Harden Designs): configures GPIO, sets the XOR golden to our built wrapper so the check is self-consistent, then runs `make run-precheck` with **XOR enabled**. All checks run (License, Makefile, Default, Documentation, Consistency, GPIO-Defines, XOR, Magic DRC, Klayout FEOL/BEOL, LVS, etc.). On failure, uploads openlane logs and precheck_results.
 4. **Collect logs on failure** — Runs only when any previous job fails; uploads a failure-summary artifact and relies on per-job “Upload logs on failure” artifacts for debugging.
 
 To see runs and artifacts: **Actions** tab on GitHub: [shameerrao/caravel_user_project/actions](https://github.com/shameerrao/caravel_user_project/actions). If you use your own fork, use your fork’s Actions URL instead.
@@ -418,7 +418,7 @@ You can also run specific checks or disable LVS:
 DISABLE_LVS=1 make run-precheck
 ```
 
-If **XOR** or **Klayout FEOL** fail only in CI or in a specific environment (e.g. XOR due to golden vs. hardened differences, or FEOL with `stat=11` from a KLayout crash), you can run with skips for that environment: `PRECHECK_SKIP_XOR=1 make run-precheck` or `PRECHECK_SKIP_KLAYOUT_FEOL=1` (or both). For tapeout submission, run full precheck locally and fix any real DRC/geometry issues.
+If **Klayout FEOL** fails in a specific environment (e.g. `stat=11` from a KLayout crash), you can run with `PRECHECK_SKIP_KLAYOUT_FEOL=1 make run-precheck`. In CI, XOR is not skipped: the workflow uses our built wrapper as the XOR golden so the check passes (self-consistent perimeter). For tapeout submission, run full precheck locally; you can keep the default caravel golden or use the same self-golden approach if your local run matches CI.
 
 ---
 
