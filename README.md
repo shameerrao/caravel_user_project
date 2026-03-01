@@ -174,16 +174,16 @@ make run-precheck
 ---
 
 ## GitHub Actions (RTL-to-GDS Pipeline)
-A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/user_project_ci.yml) (`.github/workflows/user_project_ci.yml`). The structure mirrors a typical Caravel tapeout CI: **Init** → **sim-rtl** (RTL verification) → **hardening** (RTL→GDS) → **precheck** → **Collect logs on failure**.
+A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/user_project_ci.yml) (`.github/workflows/user_project_ci.yml`). The structure mirrors a typical Caravel tapeout CI: **sim-rtl** (RTL verification) → **hardening** (RTL→GDS, then **precheck** in the same job) → **Collect logs on failure**.
 
 | Runner | Trigger | What it does |
 |--------|---------|--------------|
-| `ubuntu-latest` (default) or [self-hosted](#github-self-hosted-runner) | Every push/PR, or **Run workflow** in Actions | **sim-rtl** (RTL sim for sky130A/sky130B); then **hardening** (RTL→GDS); then **precheck**; on any failure, **Collect logs on failure** runs and uploads a summary plus per-job logs. |
+| `ubuntu-latest` (default) or [self-hosted](#github-self-hosted-runner) | Every push/PR, or **Run workflow** in Actions | **sim-rtl** (RTL sim for sky130A/sky130B); then **hardening** (RTL→GDS, then full precheck including XOR in the same job); on any failure, **Collect logs on failure** runs and uploads a summary plus per-job logs. |
 
 **Job flow:**
 1. **sim-rtl** — `make setup` (Caravel, cocotb, PDK) → GPIO defaults → `make verify-all-rtl`. Must pass before hardening. On failure, uploads sim logs.
-2. **hardening** — `make setup` (PDK + LibreLane/OpenLane) → `get_designs.py` → `make <design>` for each macro → upload design artifact. On failure, uploads OpenLane runs.
-3. **precheck** — Downloads design artifact and the same **caravel** used during hardening (so the XOR check uses the matching golden reference), configures GPIO, runs full `make run-precheck` (all checks including XOR). On failure, uploads precheck_results.
+2. **hardening** — `make setup` (PDK + LibreLane/OpenLane) → `get_designs.py` → `make <design>` for each macro → Configure GPIO → `make run-precheck` (full, including XOR) → upload design artifact. On failure, uploads OpenLane and precheck logs.
+3. **precheck** — Runs in the **same job** as hardening (after Harden Designs): configures GPIO, then runs full `make run-precheck` (all checks including XOR) using the same workspace and caravel, so the XOR golden matches the build. On failure, uploads openlane logs and precheck_results.
 4. **Collect logs on failure** — Runs only when any previous job fails; uploads a failure-summary artifact and relies on per-job “Upload logs on failure” artifacts for debugging.
 
 To see runs and artifacts: **Actions** tab on GitHub: [shameerrao/caravel_user_project/actions](https://github.com/shameerrao/caravel_user_project/actions). If you use your own fork, use your fork’s Actions URL instead.
@@ -234,7 +234,7 @@ When configuring the runner, use at least:
 - `linux`
 - `x64`
 
-To use this runner for CI, edit [`.github/workflows/user_project_ci.yml`](.github/workflows/user_project_ci.yml) and set `runs-on: [self-hosted, linux, x64]` for the jobs that should run on your machine (e.g. `hardening`, `rtl-verification`, `precheck`). Leave `ubuntu-latest` if you want those jobs to run on GitHub-hosted runners.
+To use this runner for CI, edit [`.github/workflows/user_project_ci.yml`](.github/workflows/user_project_ci.yml) and set `runs-on: [self-hosted, linux, x64]` for the jobs that should run on your machine (e.g. `hardening`, which includes precheck). Leave `ubuntu-latest` if you want those jobs to run on GitHub-hosted runners.
 
 ### 5. Verify
 - In **Settings → Actions → Runners**, the new runner should appear as “Idle”.
