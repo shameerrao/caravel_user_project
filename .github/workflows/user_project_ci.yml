@@ -225,7 +225,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: caravel-${{ matrix.pdk }}
-          path: ${{ github.workspace }}
+          path: ${{ github.workspace }}/caravel_download
+
+      - name: Use caravel golden (avoid overwriting project Makefile)
+        run: |
+          rm -rf caravel
+          if [ -d caravel_download/caravel ]; then
+            mv caravel_download/caravel caravel
+          else
+            mv caravel_download caravel
+          fi
+          rm -rf caravel_download
 
       - name: Configure GPIO defaults
         run: |
@@ -242,6 +252,7 @@ jobs:
           name: precheck-logs-${{ matrix.pdk }}-${{ github.run_id }}
           path: |
             precheck_results/
+          if-no-files-found: ignore
           retention-days: 7
 
   collect-logs-on-failure:
