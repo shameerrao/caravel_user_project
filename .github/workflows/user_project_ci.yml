@@ -137,6 +137,13 @@ jobs:
             ${{ github.workspace }}/lef
           retention-days: 1
 
+      - name: Upload Caravel (for precheck XOR golden)
+        uses: actions/upload-artifact@v4
+        with:
+          name: caravel-${{ matrix.pdk }}
+          path: caravel
+          retention-days: 1
+
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -212,6 +219,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: design-${{ matrix.pdk }}
+          path: ${{ github.workspace }}
+
+      - name: Download Caravel from hardening (XOR golden)
+        uses: actions/download-artifact@v4
+        with:
+          name: caravel-${{ matrix.pdk }}
           path: ${{ github.workspace }}
 
       - name: Configure GPIO defaults

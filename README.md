@@ -183,7 +183,7 @@ A single workflow runs the full SkyWater 130 flow: [**CI**](.github/workflows/us
 **Job flow:**
 1. **sim-rtl** — `make setup` (Caravel, cocotb, PDK) → GPIO defaults → `make verify-all-rtl`. Must pass before hardening. On failure, uploads sim logs.
 2. **hardening** — `make setup` (PDK + LibreLane/OpenLane) → `get_designs.py` → `make <design>` for each macro → upload design artifact. On failure, uploads OpenLane runs.
-3. **precheck** — Downloads design artifact, configures GPIO, runs full `make run-precheck` (all checks including XOR and Klayout FEOL). On failure, uploads precheck_results.
+3. **precheck** — Downloads design artifact and the same **caravel** used during hardening (so the XOR check uses the matching golden reference), configures GPIO, runs full `make run-precheck` (all checks including XOR). On failure, uploads precheck_results.
 4. **Collect logs on failure** — Runs only when any previous job fails; uploads a failure-summary artifact and relies on per-job “Upload logs on failure” artifacts for debugging.
 
 To see runs and artifacts: **Actions** tab on GitHub: [shameerrao/caravel_user_project/actions](https://github.com/shameerrao/caravel_user_project/actions). If you use your own fork, use your fork’s Actions URL instead.
