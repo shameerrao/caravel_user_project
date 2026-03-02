@@ -1,9 +1,9 @@
 5 Lint warnings found.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
 Cell 'user_proj_example' has (286) input pin(s) without antenna gate information. They might not be connected to a gate.
 Cell 'user_proj_example' has (131) output pin(s) without antenna diffusion information. They might not be driven.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
 [PDN-0239] Core ring shape falls outside the die bounds.
 Bterm vssa2 is declared as a 'GROUND' pin. It will be ignored.
 Bterm vdda2 is declared as a 'POWER' pin. It will be ignored.
@@ -13,18 +13,18 @@ Bterm vssd2 is declared as a 'GROUND' pin. It will be ignored.
 Bterm vccd2 is declared as a 'POWER' pin. It will be ignored.
 Bterm vssd1 is declared as a 'GROUND' pin. It will be ignored.
 Bterm vccd1 is declared as a 'POWER' pin. It will be ignored.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
 All instances are FIXED/FIRM.
 No need to perform global placement.
 Skipping…
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
 [GRT-0097] No global routing found for nets.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
 [GRT-0097] No global routing found for nets.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
 [GRT-0097] No global routing found for nets.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
 [GRT-0036] Pin analog_io[0] is outside die area.
 [GRT-0036] Pin analog_io[10] is outside die area.
 [GRT-0036] Pin analog_io[11] is outside die area.
@@ -1663,9 +1663,9 @@ Skipping…
 [GRT-0041] Net vssa1 has wires/vias outside die area.
 [GRT-0041] Net vssa1 has wires/vias outside die area.
 [GRT-0041] message limit reached, this message will no longer print
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
 [DRT-0349] LEF58_ENCLOSURE with no CUTCLASS is not supported. Skipping for layer mcon
 [DRT-0349] LEF58_ENCLOSURE with no CUTCLASS is not supported. Skipping for layer mcon
 [DRT-0349] LEF58_ENCLOSURE with no CUTCLASS is not supported. Skipping for layer via
@@ -1676,7 +1676,7 @@ Skipping…
 [DRT-0349] LEF58_ENCLOSURE with no CUTCLASS is not supported. Skipping for layer via3
 [DRT-0349] LEF58_ENCLOSURE with no CUTCLASS is not supported. Skipping for layer via4
 [DRT-0349] LEF58_ENCLOSURE with no CUTCLASS is not supported. Skipping for layer via4
-[STA-1140] /home/marwan/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
+[STA-1140] /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/lib/user_proj_example.lib line 1, library user_proj_example already exists.
 Threshold for Threshold-surpassing long wires is not set. The checker will be skipped.
 Cell 'user_project_wrapper' has (29) inout pin(s) without anetnna gate information not antenna diffusion information. They might be disconnected.
 Cell 'user_project_wrapper' has (309) input pin(s) without antenna gate information. They might not be connected to a gate.

@@ -98,8 +98,8 @@ flow__warnings__count,1
 flow__errors__count,0
 design__instance__count__class:fill_cell,485362
 design__instance__count__class:tap_cell,69228
-design__power_grid_violation__count__net:vccd1,0
 design__power_grid_violation__count__net:vssd1,0
+design__power_grid_violation__count__net:vccd1,0
 design__power_grid_violation__count,0
 timing__drv__floating__nets,0
 timing__drv__floating__pins,0
@@ -263,7 +263,7 @@ design_powergrid__voltage__worst__net:vccd1__corner:nom_tt_025C_1v80,1.79983
 design_powergrid__drop__average__net:vccd1__corner:nom_tt_025C_1v80,1.8
 design_powergrid__drop__worst__net:vccd1__corner:nom_tt_025C_1v80,0.000166719
 design_powergrid__voltage__worst__net:vssd1__corner:nom_tt_025C_1v80,0.000205177
-design_powergrid__drop__average__net:vssd1__corner:nom_tt_025C_1v80,2.52764E-7
+design_powergrid__drop__average__net:vssd1__corner:nom_tt_025C_1v80,2.46213E-7
 design_powergrid__drop__worst__net:vssd1__corner:nom_tt_025C_1v80,0.000205177
 design_powergrid__voltage__worst,0.000205177
 design_powergrid__voltage__worst__net:vccd1,1.79983

@@ -225,8 +225,8 @@ No property perim found for device sky130_fd_pr__special_pfet_01v8_hvt
 No property topography found for device sky130_fd_pr__special_pfet_01v8_hvt
 No property value found for device sky130_fd_pr__diode_pw2nd_05v5
 No property mult found for device sky130_fd_pr__diode_pw2nd_05v5
-Comparison output logged to file /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/openlane/user_proj_example/runs/26_02_27_13_17/71-netgen-lvs/reports/lvs.netgen.rpt
-Logging to file "/tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/openlane/user_proj_example/runs/26_02_27_13_17/71-netgen-lvs/reports/lvs.netgen.rpt" enabled
+Comparison output logged to file /tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/openlane/user_proj_example/runs/26_03_01_16_55/71-netgen-lvs/reports/lvs.netgen.rpt
+Logging to file "/tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/openlane/user_proj_example/runs/26_03_01_16_55/71-netgen-lvs/reports/lvs.netgen.rpt" enabled
 
 Contents of circuit 1:  Circuit: 'sky130_fd_sc_hd__fill_4'
 Circuit sky130_fd_sc_hd__fill_4 contains 0 device instances.
@@ -1443,5 +1443,5 @@ Circuit 1 contains 910 nets,    Circuit 2 contains 910 nets.
 Final result: 
 Circuits match uniquely.
 .
-Logging to file "/tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/openlane/user_proj_example/runs/26_02_27_13_17/71-netgen-lvs/reports/lvs.netgen.rpt" disabled
+Logging to file "/tools/C/eegr-463/sh.rao/SP26/tapeouts/caravel_user_project/openlane/user_proj_example/runs/26_03_01_16_55/71-netgen-lvs/reports/lvs.netgen.rpt" disabled
 LVS Done.

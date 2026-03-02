@@ -422,7 +422,7 @@ You can also run specific checks or disable LVS:
 DISABLE_LVS=1 make run-precheck
 ```
 
-If **Klayout FEOL** fails in a specific environment (e.g. `stat=11` from a KLayout crash), you can run with `PRECHECK_SKIP_KLAYOUT_FEOL=1 make run-precheck`. In CI, XOR is not skipped: the workflow uses our built wrapper as the XOR golden so the check passes (self-consistent perimeter). For tapeout submission, run full precheck locally; you can keep the default caravel golden or use the same self-golden approach if your local run matches CI.
+If **Klayout FEOL** hangs or fails (e.g. `stat=11` from a KLayout crash), you can **skip the FEOL check** and still get a full pass for the rest: `PRECHECK_SKIP_KLAYOUT_FEOL=1 make run-precheck`. The local `mpw_precheck` clone caps KLayout DRC threads (default 8) and uses a 2-hour timeout so runs fail instead of hanging; override with `KLAYOUT_DRC_THREADS=16` or `KLAYOUT_DRC_TIMEOUT=14400` (4h) if needed. In CI, XOR is not skipped: the workflow uses our built wrapper as the XOR golden so the check passes (self-consistent perimeter). For tapeout submission, run full precheck locally; you can keep the default caravel golden or use the same self-golden approach if your local run matches CI.
 
 ---
 

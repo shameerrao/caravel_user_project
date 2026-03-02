@@ -296,6 +296,8 @@ run-precheck: check-deprecated check-pdk check-precheck
 			-e PDK_ROOT=$(PDK_ROOT) \
 			-e PDKPATH=$(PDKPATH) \
 			-e GOLDEN_CARAVEL=$(CARAVEL_ROOT) \
+			-e KLAYOUT_DRC_THREADS="$$KLAYOUT_DRC_THREADS" \
+			-e KLAYOUT_DRC_TIMEOUT="$$KLAYOUT_DRC_TIMEOUT" \
 			chipfoundry/mpw_precheck:latest bash -lc "test -f /.dockerenv || touch /.dockerenv; cd $(PRECHECK_ROOT) ; python3 mpw_precheck.py --input_directory \"$$STAGE_DIR\" --pdk_path $(PDK_ROOT)/$(PDK) license makefile default documentation consistency gpio_defines xor magic_drc klayout_feol klayout_beol klayout_offgrid klayout_met_min_ca_density klayout_pin_label_purposes_overlapping_drawing klayout_zeroarea"; \
 		STATUS="$$?"; \
 		mkdir -p "$$ORIG_DIR/precheck_results"; \
@@ -329,6 +331,8 @@ run-precheck: check-deprecated check-pdk check-precheck
 			-e PDK_ROOT=$(PDK_ROOT) \
 			-e PDKPATH=$(PDKPATH) \
 			-e GOLDEN_CARAVEL=$(CARAVEL_ROOT) \
+			-e KLAYOUT_DRC_THREADS="$$KLAYOUT_DRC_THREADS" \
+			-e KLAYOUT_DRC_TIMEOUT="$$KLAYOUT_DRC_TIMEOUT" \
 			chipfoundry/mpw_precheck:latest bash -lc "test -f /.dockerenv || touch /.dockerenv; cd $(PRECHECK_ROOT) ; python3 mpw_precheck.py --input_directory \"$$STAGE_DIR\" --pdk_path $(PDK_ROOT)/$(PDK) $(if $(filter 1,$(PRECHECK_SKIP_XOR)),$(if $(filter 1,$(PRECHECK_SKIP_KLAYOUT_FEOL)),$(PRECHECK_CHECKS_CI),$(PRECHECK_CHECKS_NO_XOR)),)"; \
 		STATUS="$$?"; \
 		mkdir -p "$$ORIG_DIR/precheck_results"; \
